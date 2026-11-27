@@ -306,7 +306,7 @@ input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.18); }
     <div class="grp">
       <button class="tb" type="button" data-tip="Load DICOM files" aria-label="Load DICOM files" id="tbFiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></button>
       <button class="tb" type="button" data-tip="Load DICOM folder" aria-label="Load DICOM folder" id="tbFolder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
-      <button class="tb" type="button" data-tip="Demo phantom" aria-label="Demo phantom" id="demoBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+      <button class="tb" type="button" data-tip="Demo scan: head and neck CT (downloads about 80 MB once)" aria-label="Load the demo head and neck CT" id="demoBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
     </div>
     <span class="sep"></span>
     <div class="grp" role="group" aria-label="Layout">
@@ -348,7 +348,7 @@ input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.18); }
       <button class="tb" type="button" data-tip="Shortcuts and help" aria-label="Shortcuts and help" id="tbHelp" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.7.400-1 .9-1 1.700M12 17h.01"/></svg></button>
     </div>
     <span id="slInfo" class="readout mono muted">–</span>
-    <div class="dsbox"><div id="dsName" class="dsname">Demo phantom</div><div id="dsMeta" class="mono muted">Generating…</div></div>
+    <div class="dsbox"><div id="dsName" class="dsname">Demo scan</div><div id="dsMeta" class="mono muted">Loading…</div></div>
     <input id="fileIn" type="file" multiple hidden>
     <input id="dirIn" type="file" webkitdirectory hidden>
   </header>
@@ -378,7 +378,9 @@ input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.18); }
       <dt><kbd>Esc</kbd></dt><dd>Close this box</dd>
     </dl>
     <h2 style="margin-top:14px">Loading data</h2>
-    <p class="hint" style="margin-top:0">Use the file or folder buttons, or drop files or folders anywhere in the window. CT and MR series: uncompressed, deflated, RLE, JPEG baseline and JPEG lossless. JPEG 2000 and JPEG-LS are not supported.</p>
+    <p class="hint" style="margin-top:0">Use the file or folder buttons, or drop files or folders anywhere in the window. CT and MR series: uncompressed, deflated, RLE, JPEG baseline and JPEG lossless. JPEG 2000 and JPEG-LS are not supported. NIfTI volumes (.nii, .nii.gz) and ZIP files of DICOM images load too.</p>
+    <h2 style="margin-top:14px">Demo scan</h2>
+    <p class="hint" style="margin-top:0">A full head-and-neck CT angiography in DICOM, the sample scan of Kitware's open-source <a href="https://volview.kitware.app" target="_blank" rel="noopener">VolView</a> viewer, downloaded from data.kitware.com (about 80 MB). It is kept in the browser after the first download. Without internet a synthetic phantom is shown instead.</p>
   </div>
   <div id="tip" role="tooltip" hidden></div>
 
@@ -431,7 +433,7 @@ input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.18); }
 
   <button id="exitPresent" type="button">Exit presentation <kbd>H</kbd></button>
   <div id="drop">Drop DICOM files or folders to load them</div>
-  <div id="overlay"><div class="card"><div class="spin"></div><p id="overlayMsg">Loading…</p><button id="overlayClose" class="btn" type="button" hidden>Dismiss</button></div></div>
+  <div id="overlay"><div class="card"><div class="spin"></div><p id="overlayMsg">Loading…</p><button id="overlaySkip" class="btn" type="button" hidden>Use the synthetic phantom instead</button><button id="overlayClose" class="btn" type="button" hidden>Dismiss</button></div></div>
 </div>
 
 <script>
@@ -1118,6 +1120,206 @@ async function buildVolume(entries, progress) {
   };
 }
 
+/* ------------------------------------------------------------------ NIfTI (.nii / .nii.gz) */
+// NIfTI-1 volumes (the format most public research scans are shared in). The voxel grid is turned into the same
+// layout a DICOM axial series gets: columns toward the patient's left, rows toward the back, slices toward the head.
+const NII_TYPES = { 2: Uint8Array, 4: Int16Array, 8: Int32Array, 16: Float32Array, 64: Float64Array, 256: Int8Array, 512: Uint16Array, 768: Uint32Array };
+const isGzip = (u8) => u8.length > 2 && u8[0] === 0x1f && u8[1] === 0x8b;
+async function gunzip(u8, progress) {
+  // the gzip trailer holds the unpacked size (mod 4 GiB), so the output can be allocated once
+  const n = u8.length;
+  let size = n > 8 ? (u8[n - 4] | (u8[n - 3] << 8) | (u8[n - 2] << 16) | (u8[n - 1] << 24)) >>> 0 : 0;
+  let out = new Uint8Array(Math.max(size, 1 << 20));
+  let len = 0;
+  const reader = new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+  let tickN = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (len + value.length > out.length) { const bigger = new Uint8Array(Math.max(out.length * 2, len + value.length)); bigger.set(out.subarray(0, len)); out = bigger; }
+    out.set(value, len); len += value.length;
+    if (progress && (++tickN & 63) === 0) { progress('Unpacking ' + Math.round(len / 1048576) + ' MB…'); await tick(); }
+  }
+  return len === out.length ? out : out.subarray(0, len);
+}
+function niftiHeader(u8) {
+  if (u8.length < 352) throw new Error('This file is too small to be a NIfTI volume.');
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let le = true;
+  if (dv.getInt32(0, true) !== 348) {
+    if (dv.getInt32(0, false) === 348) le = false;
+    else if (dv.getInt32(0, true) === 540 || dv.getInt32(0, false) === 540) throw new Error('NIfTI-2 files are not supported yet.');
+    else throw new Error('Not a NIfTI-1 file.');
+  }
+  const i16 = (o) => dv.getInt16(o, le), f32 = (o) => dv.getFloat32(o, le);
+  const dim = []; for (let i = 0; i < 8; i++) dim.push(i16(40 + 2 * i));
+  const pix = []; for (let i = 0; i < 8; i++) pix.push(f32(76 + 4 * i));
+  const h = {
+    le, dim, pix, datatype: i16(70), voxOffset: Math.max(352, Math.round(f32(108))),
+    slope: f32(112), inter: f32(116), qcode: i16(252), scode: i16(254),
+    quat: [f32(256), f32(260), f32(264)], srow: [0, 1, 2].map((r) => [0, 1, 2, 3].map((c) => f32(280 + 16 * r + 4 * c))),
+  };
+  let d = '';
+  for (let i = 148; i < 228; i++) { const c = u8[i]; if (!c) break; d += String.fromCharCode(c); }
+  h.descrip = d.trim();
+  return h;
+}
+// voxel axis directions in RAS millimetres: [axis][x, y, z]
+function niftiAxes(h) {
+  const sp = [Math.abs(h.pix[1]) || 1, Math.abs(h.pix[2]) || 1, Math.abs(h.pix[3]) || 1];
+  if (h.scode > 0) return [0, 1, 2].map((a) => [h.srow[0][a], h.srow[1][a], h.srow[2][a]]);
+  if (h.qcode > 0) {
+    const [b, c, d] = h.quat, a = Math.sqrt(Math.max(0, 1 - b * b - c * c - d * d));
+    const R = [[a * a + b * b - c * c - d * d, 2 * (b * c - a * d), 2 * (b * d + a * c)],
+      [2 * (b * c + a * d), a * a + c * c - b * b - d * d, 2 * (c * d - a * b)],
+      [2 * (b * d - a * c), 2 * (c * d + a * b), a * a + d * d - b * b - c * c]];
+    const qfac = h.pix[0] < 0 ? -1 : 1;
+    return [0, 1, 2].map((ax) => [0, 1, 2].map((r) => R[r][ax] * sp[ax] * (ax === 2 ? qfac : 1)));
+  }
+  return [[sp[0], 0, 0], [0, sp[1], 0], [0, 0, sp[2]]];
+}
+async function niftiToVolume(input, name, progress) {
+  let u8 = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (isGzip(u8)) { progress && progress('Unpacking…'); await tick(); u8 = await gunzip(u8, progress); }
+  const h = niftiHeader(u8);
+  const nd = h.dim[0];
+  if (nd < 3) throw new Error('This NIfTI file is not a 3D volume.');
+  const n = [h.dim[1], h.dim[2], h.dim[3]];
+  if (n.some((x) => x < 1)) throw new Error('This NIfTI file has an empty dimension.');
+  const T = NII_TYPES[h.datatype];
+  if (!T) throw new Error('NIfTI data type ' + h.datatype + ' is not supported (RGB and complex images cannot be shown).');
+  const count = n[0] * n[1] * n[2];
+  const bytes = count * T.BYTES_PER_ELEMENT;
+  if (h.voxOffset + bytes > u8.length) throw new Error('The NIfTI file is cut short (' + u8.length + ' of ' + (h.voxOffset + bytes) + ' bytes).');
+  // typed view on the first 3D volume (copy so it is aligned; swap bytes for big-endian files)
+  const raw = u8.slice(h.voxOffset, h.voxOffset + bytes);
+  if (!h.le && T.BYTES_PER_ELEMENT > 1) {
+    const s = T.BYTES_PER_ELEMENT;
+    for (let i = 0; i < raw.length; i += s) for (let a = 0, b = s - 1; a < b; a++, b--) { const t = raw[i + a]; raw[i + a] = raw[i + b]; raw[i + b] = t; }
+  }
+  const src = new T(raw.buffer);
+  // value scaling to integers: scl_slope/inter, and unit-range float data stretched to 0..4000
+  let slope = h.slope && Number.isFinite(h.slope) ? h.slope : 1, inter = Number.isFinite(h.inter) ? h.inter : 0;
+  {
+    let mn = Infinity, mx = -Infinity;
+    const st = Math.max(1, Math.floor(count / 2e6));
+    for (let i = 0; i < count; i += st) { const v = src[i] * slope + inter; if (v < mn) mn = v; if (v > mx) mx = v; }
+    if (mx - mn < 50 || mx > 32767 || mn < -32768) { const k = 4000 / Math.max(1e-9, mx - mn); inter = (inter - mn) * k; slope *= k; }
+  }
+  // map voxel axes onto columns (patient left), rows (posterior), slices (superior)
+  const A = niftiAxes(h);
+  const want = [-1, -1, 1];                 // RAS sign of +columns, +rows, +slices
+  const perm = [-1, -1, -1], flip = [false, false, false], spac = [1, 1, 1];
+  let ok = true;
+  for (let a = 0; a < 3; a++) {
+    const col = A[a];
+    let dom = 0;
+    for (let c = 1; c < 3; c++) if (Math.abs(col[c]) > Math.abs(col[dom])) dom = c;
+    if (perm[dom] >= 0) { ok = false; break; }
+    perm[dom] = a; flip[dom] = Math.sign(col[dom] || 1) !== want[dom];
+    spac[dom] = Math.hypot(col[0], col[1], col[2]) || 1;
+  }
+  if (!ok) { perm[0] = 0; perm[1] = 1; perm[2] = 2; flip.fill(false); spac[0] = Math.abs(h.pix[1]) || 1; spac[1] = Math.abs(h.pix[2]) || 1; spac[2] = Math.abs(h.pix[3]) || 1; }
+  const N3 = [n[perm[0]], n[perm[1]], n[perm[2]]];
+  // reduce to at most MAX_DIM per side and about 170 M voxels, by block averaging
+  const f = N3.map((x) => Math.max(1, Math.ceil(x / MAX_DIM)));
+  while (Math.floor(N3[0] / f[0]) * Math.floor(N3[1] / f[1]) * Math.floor(N3[2] / f[2]) > 170e6) { f[0]++; f[1]++; }
+  const nx = Math.max(1, Math.floor(N3[0] / f[0])), ny = Math.max(1, Math.floor(N3[1] / f[1])), nz = Math.max(1, Math.floor(N3[2] / f[2]));
+  if (nz < 2) throw new Error('Need at least two slices to build a volume.');
+  const stride = [1, n[0], n[0] * n[1]];
+  const s0 = stride[perm[0]], s1 = stride[perm[1]], s2 = stride[perm[2]];
+  const out = new Int16Array(nx * ny * nz);
+  const fN = f[0] * f[1] * f[2];
+  for (let k = 0; k < nz; k++) {
+    for (let j = 0; j < ny; j++) {
+      const o = (k * ny + j) * nx;
+      for (let i = 0; i < nx; i++) {
+        let acc = 0;
+        for (let c = 0; c < f[2]; c++) {
+          const kk = k * f[2] + c, ks = (flip[2] ? N3[2] - 1 - kk : kk) * s2;
+          for (let b = 0; b < f[1]; b++) {
+            const jj = j * f[1] + b, js = ks + (flip[1] ? N3[1] - 1 - jj : jj) * s1;
+            for (let a = 0; a < f[0]; a++) {
+              const ii = i * f[0] + a;
+              acc += src[js + (flip[0] ? N3[0] - 1 - ii : ii) * s0];
+            }
+          }
+        }
+        const v = Math.round((acc / fN) * slope + inter);
+        out[o + i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+      }
+    }
+    if (progress && k % 16 === 0) { progress('Building volume ' + Math.round(((k + 1) / nz) * 100) + '%'); await tick(); }
+  }
+  // CT-like (Hounsfield) values: air near -1000 and bone well above 1000
+  let lo = 0, hiV = 0;
+  { const st = Math.max(1, Math.floor(out.length / 1e6)); const s = []; for (let i = 0; i < out.length; i += st) s.push(out[i]); s.sort((a, b) => a - b); lo = s[Math.floor(s.length * 0.01)]; hiV = s[Math.floor(s.length * 0.999)]; }
+  const ct = lo <= -700 && lo >= -1200 && hiV > 700;
+  return {
+    nx, ny, nz, sx: spac[0] * f[0], sy: spac[1] * f[1], sz: spac[2] * f[2], raw: out,
+    modality: ct ? 'CT' : '', name: name || h.descrip || 'NIfTI volume',
+    sourceSlices: N3[2], sourceDims: [N3[0], N3[1]],
+  };
+}
+const isNifti = (f) => /\.nii(\.gz)?$/i.test(f.name);
+
+/* ------------------------------------------------------------------ ZIP archives (zipped DICOM series) */
+// Reads stored and deflated entries (what every zip tool writes), using the browser's own decompressor.
+async function inflateRaw(u8) {
+  const s = new Blob([u8]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+async function unzipFiles(u8, say) {
+  const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('This is not a readable ZIP archive.');
+  let count = dv.getUint16(eocd + 10, true), cdOff = dv.getUint32(eocd + 16, true);
+  if (cdOff === 0xffffffff || count === 0xffff) {   // ZIP64
+    const loc = eocd - 20;
+    if (loc < 0 || dv.getUint32(loc, true) !== 0x07064b50) throw new Error('Unsupported ZIP64 archive.');
+    const z64 = Number(dv.getBigUint64(loc + 8, true));
+    count = Number(dv.getBigUint64(z64 + 32, true)); cdOff = Number(dv.getBigUint64(z64 + 48, true));
+  }
+  const out = [];
+  let p = cdOff;
+  const dec = new TextDecoder();
+  for (let e = 0; e < count; e++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    let csize = dv.getUint32(p + 20, true), usize = dv.getUint32(p + 24, true);
+    const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+    let lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nlen));
+    if (csize === 0xffffffff || usize === 0xffffffff || lho === 0xffffffff) {   // ZIP64 extra field
+      let x = p + 46 + nlen;
+      const xe = x + xlen;
+      while (x + 4 <= xe) {
+        const id = dv.getUint16(x, true), sz = dv.getUint16(x + 2, true);
+        if (id === 1) {
+          let q = x + 4;
+          if (usize === 0xffffffff) { usize = Number(dv.getBigUint64(q, true)); q += 8; }
+          if (csize === 0xffffffff) { csize = Number(dv.getBigUint64(q, true)); q += 8; }
+          if (lho === 0xffffffff) { lho = Number(dv.getBigUint64(q, true)); }
+        }
+        x += 4 + sz;
+      }
+    }
+    p += 46 + nlen + xlen + clen;
+    if (name.endsWith('/') || /(^|\/)(__MACOSX|\.DS_Store)/.test(name)) continue;
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true);
+    const data = u8.subarray(start, start + csize);
+    let bytes;
+    if (method === 0) bytes = data.slice();
+    else if (method === 8) bytes = await inflateRaw(data);
+    else continue;   // other compression methods are rare; skip those entries
+    out.push(new File([bytes], name.split('/').pop() || name));
+    if (say && out.length % 20 === 0) { say('Unpacking ' + out.length + ' / ' + count + ' files…'); await tick(); }
+  }
+  return out;
+}
+const isZip = (f) => /\.zip$/i.test(f.name);
+
 /* ------------------------------------------------------------------ phantom */
 function makePhantom() {
   const nx = 192, ny = 150, nz = 160, sx = 1.9, sy = 1.9, sz = 2.2;
@@ -1198,7 +1400,7 @@ function showOverlay(msg, isErr) {
   $('overlayMsg').textContent = msg;
   $('overlayClose').hidden = !isErr;
 }
-function hideOverlay() { $('overlay').className = ''; }
+function hideOverlay() { $('overlay').className = ''; $('overlaySkip').hidden = true; }
 $('overlayClose').addEventListener('click', hideOverlay);
 
 async function initGPU() {
@@ -1375,6 +1577,7 @@ function setVolume(v) {
   const m = Math.max(phys[0], phys[1], phys[2]);
   vol.ext = phys.map((p) => p / m);
   $('dsName').textContent = v.name;
+  $('dsName').title = v.credit || v.name;
   $('dsMeta').textContent = v.nx + ' × ' + v.ny + ' × ' + v.nz + ' · ' + v.sx.toFixed(2) + ' × ' + v.sy.toFixed(2) + ' × ' + v.sz.toFixed(2) + ' mm · ' + (v.modality || 'unknown');
   resetView();
   if (keepLayers) { renderLayers(); buildTF(); }
@@ -2133,6 +2336,41 @@ async function detectTeeth(v, opt, progress) {
   return { mask: full, regions, volumeMm3: count * sx * sy * sz, info };
 }
 
+// Very fine scans (dental CBCT is often 0.1–0.2 mm) are searched on a coarser copy (about 0.3 mm): the result is
+// the same at screen scale and it needs a fraction of the memory and time. The mask is scaled back up afterwards.
+async function detectTeethScaled(v, opt, progress, target) {
+  target = target || 0.3;
+  const f = [v.sx, v.sy, v.sz].map((s) => Math.max(1, Math.floor(target / s + 1e-6)));
+  if (f[0] * f[1] * f[2] === 1) return detectTeeth(v, opt, progress);
+  const { nx, ny, nz, raw } = v;
+  const cx = Math.floor(nx / f[0]), cy = Math.floor(ny / f[1]), cz = Math.floor(nz / f[2]);
+  const small = new Int16Array(cx * cy * cz), fn = f[0] * f[1] * f[2];
+  for (let k = 0; k < cz; k++) for (let j = 0; j < cy; j++) {
+    const o = (k * cy + j) * cx;
+    for (let i = 0; i < cx; i++) {
+      let acc = 0;
+      for (let c = 0; c < f[2]; c++) for (let b = 0; b < f[1]; b++) {
+        let p = ((k * f[2] + c) * ny + j * f[1] + b) * nx + i * f[0];
+        for (let a = 0; a < f[0]; a++) acc += raw[p++];
+      }
+      small[o + i] = Math.round(acc / fn);
+    }
+  }
+  const r = await detectTeeth({ nx: cx, ny: cy, nz: cz, sx: v.sx * f[0], sy: v.sy * f[1], sz: v.sz * f[2], raw: small }, opt, progress);
+  if (!r.mask) return r;
+  const full = new Uint8Array(nx * ny * nz);
+  let count = 0;
+  for (let k = 0; k < nz; k++) {
+    const kc = Math.min(cz - 1, (k / f[2]) | 0);
+    for (let j = 0; j < ny; j++) {
+      const row = (kc * cy + Math.min(cy - 1, (j / f[1]) | 0)) * cx;
+      let p = (k * ny + j) * nx;
+      for (let i = 0; i < nx; i++, p++) if (r.mask[row + Math.min(cx - 1, (i / f[0]) | 0)]) { full[p] = 1; count++; }
+    }
+  }
+  return Object.assign({}, r, { mask: full, volumeMm3: count * v.sx * v.sy * v.sz });
+}
+
 /* ------------------------------------------------------------------ slice viewer + multi-view layouts */
 // Layouts: 'off' (3D full window, one slice in the side panel), 'grid' (2 x 2), 'focus' (1 big + 3 small), 'single' (1 big only).
 // Double-click any view to promote it. Volume indices: i = column (world x), j = row (world z, flipped), k = slice (world y).
@@ -2379,7 +2617,7 @@ async function runDetect() {
   showOverlay('Detecting teeth…');
   await tick();
   try {
-    const r = await detectTeeth(vol, teethOptions(), (m) => { $('overlayMsg').textContent = 'Detecting teeth… ' + (m || ''); });
+    const r = await detectTeethScaled(vol, teethOptions(), (m) => { $('overlayMsg').textContent = 'Detecting teeth… ' + (m || ''); });
     if (my !== teeth.token) return;                       // another scan was loaded meanwhile
     if (!r.mask) {
       teeth.mask = null; clearTeethMask();
@@ -2577,6 +2815,7 @@ function updateInfo() {
     ['Voxel (mm)', vol.sx.toFixed(2) + ' × ' + vol.sy.toFixed(2) + ' × ' + vol.sz.toFixed(2)],
     ['Size (mm)', (vol.nx * vol.sx).toFixed(0) + ' × ' + (vol.ny * vol.sy).toFixed(0) + ' × ' + (vol.nz * vol.sz).toFixed(0)],
     ['Modality', vol.modality || 'unknown'],
+    ...(vol.credit ? [['Credit', vol.credit]] : []),
     ['Data range', vol.min + ' … ' + vol.max + ' ' + unit],
     ['Mapped range', Math.round(vol.lo) + ' … ' + Math.round(vol.hi) + ' ' + unit],
     ['GPU texture', 'r16float · ' + (vol.nx * vol.ny * vol.nz * 2 / 1048576).toFixed(0) + ' MB'],
@@ -2856,28 +3095,43 @@ function drawHist() {
 }
 
 /* ------------------------------------------------------------------ loading files */
+// Turns dropped or downloaded files into a volume: NIfTI, a ZIP of DICOM files, or plain DICOM files.
+async function volumeFromFiles(files, say, name) {
+  files = files.filter((f) => f.size > 132);
+  const zips = files.filter(isZip);
+  if (zips.length) {
+    const inner = [];
+    for (const z of zips) inner.push(...await unzipFiles(new Uint8Array(await z.arrayBuffer()), say));
+    files = files.filter((f) => !isZip(f)).concat(inner).filter((f) => f.size > 132);
+  }
+  const nii = files.find(isNifti);
+  if (nii) return niftiToVolume(await nii.arrayBuffer(), name || nii.name.replace(/\.nii(\.gz)?$/i, ''), say);
+  const entries = [];
+  let lastErr = null, done = 0;
+  for (const f of files) {
+    try {
+      let buf = await f.arrayBuffer();
+      let info = parseDicom(buf);
+      if (info && info.deflatedAt !== undefined) {   // deflated transfer syntax: inflate the dataset, then parse again
+        buf = await inflateDataset(buf, info.deflatedAt);
+        info = parseDicom(buf, { inflated: true });
+      }
+      if (info) entries.push({ buf, info });
+    } catch (err) { lastErr = err; }
+    if (++done % 8 === 0) { say('Reading ' + done + ' / ' + files.length + '…'); await tick(); }
+  }
+  if (!entries.length) throw (lastErr || new Error('No readable DICOM images were found in the selection.'));
+  const v = await buildVolume(entries, say);
+  if (name) v.name = name;
+  return v;
+}
 async function loadFiles(files) {
   files = files.filter((f) => f.size > 132);
   if (!files.length) return;
   showOverlay('Reading ' + files.length + ' file' + (files.length === 1 ? '' : 's') + '…');
   await tick();
   try {
-    const entries = [];
-    let lastErr = null, done = 0;
-    for (const f of files) {
-      try {
-        let buf = await f.arrayBuffer();
-        let info = parseDicom(buf);
-        if (info && info.deflatedAt !== undefined) {   // deflated transfer syntax: inflate the dataset, then parse again
-          buf = await inflateDataset(buf, info.deflatedAt);
-          info = parseDicom(buf, { inflated: true });
-        }
-        if (info) entries.push({ buf, info });
-      } catch (err) { lastErr = err; }
-      if (++done % 8 === 0) { $('overlayMsg').textContent = 'Reading ' + done + ' / ' + files.length + '…'; await tick(); }
-    }
-    if (!entries.length) throw (lastErr || new Error('No readable DICOM images were found in the selection.'));
-    const v = await buildVolume(entries, (m) => { $('overlayMsg').textContent = m; });
+    const v = await volumeFromFiles(files, (m) => { $('overlayMsg').textContent = m; });
     $('overlayMsg').textContent = 'Uploading to the GPU…';
     await tick();
     setVolume(v);
@@ -2888,10 +3142,73 @@ async function loadFiles(files) {
 }
 $('fileIn').addEventListener('change', (e) => { loadFiles([...e.target.files]); e.target.value = ''; });
 $('dirIn').addEventListener('change', (e) => { loadFiles([...e.target.files]); e.target.value = ''; });
-$('demoBtn').addEventListener('click', async () => {
-  showOverlay('Generating phantom…'); await tick();
-  try { setVolume(makePhantom()); hideOverlay(); } catch (err) { showOverlay(err.message, true); }
-});
+/* ------------------------------------------------------------------ demo scan */
+// A full head-and-neck CT angiography as a ZIP of DICOM files (about 80 MB): the sample scan of Kitware's VolView
+// viewer, served by data.kitware.com, which allows browser downloads (CORS), so the page can fetch it from disk.
+const DEMO = {
+  url: 'https://data.kitware.com/api/v1/item/6347159711dab81428208e24/download',
+  file: 'CTA-Head_and_Neck.zip',
+  name: 'Demo: CT angiography, head and neck',
+  credit: 'Sample data of Kitware VolView (data.kitware.com)',
+  cache: 'dcm-webgpu-demo-v2',
+};
+let demoAbort = null;
+async function fetchProgress(url, signal, say) {
+  const r = await fetch(url, { signal, mode: 'cors' });
+  if (!r.ok) throw new Error('Download failed (HTTP ' + r.status + ').');
+  const total = parseInt(r.headers.get('content-length') || '0', 10);
+  if (!r.body) return new Uint8Array(await r.arrayBuffer());
+  const reader = r.body.getReader();
+  let buf = new Uint8Array(total > 0 ? total : 32 << 20), len = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (len + value.length > buf.length) { const b = new Uint8Array(Math.max(buf.length * 2, len + value.length)); b.set(buf.subarray(0, len)); buf = b; }
+    buf.set(value, len); len += value.length;
+    say('Downloading the demo scan… ' + (len / 1048576).toFixed(1) + (total ? ' / ' + (total / 1048576).toFixed(1) : '') + ' MB');
+  }
+  return buf.subarray(0, len);
+}
+async function loadPhantom(note) {
+  showOverlay('Generating the synthetic phantom…'); await tick();
+  try {
+    const v = makePhantom();
+    if (note) { v.name = 'Synthetic phantom (demo scan not available)'; v.credit = note; }
+    setVolume(v);
+    hideOverlay();
+  } catch (err) { showOverlay(err.message, true); }
+}
+async function loadDemo() {
+  if (demoAbort) return;
+  const ctl = new AbortController();
+  demoAbort = ctl;
+  const say = (m) => { $('overlayMsg').textContent = m; };
+  showOverlay('Loading the demo scan…');
+  $('overlaySkip').hidden = false;
+  try {
+    let bytes = null, cache = null;
+    try { cache = await caches.open(DEMO.cache); const hit = await cache.match(DEMO.url); if (hit) bytes = new Uint8Array(await hit.arrayBuffer()); } catch (e) { cache = null; }
+    if (!bytes) {
+      bytes = await fetchProgress(DEMO.url, ctl.signal, say);
+      if (cache) { try { await cache.put(DEMO.url, new Response(bytes.slice())); } catch (e) { /* storage full or not allowed: download again next time */ } }
+    }
+    if (ctl.signal.aborted) return;
+    $('overlaySkip').hidden = true;
+    const v = await volumeFromFiles([new File([bytes], DEMO.file)], say, DEMO.name);
+    bytes = null;
+    v.credit = DEMO.credit;
+    say('Uploading to the GPU…'); await tick();
+    setVolume(v);
+    hideOverlay();
+  } catch (err) {
+    if (ctl.signal.aborted) return;
+    await loadPhantom('The demo scan could not be downloaded (' + (err && err.message ? err.message : err) + '). Check the internet connection and press the demo button again.');
+  } finally {
+    if (demoAbort === ctl) demoAbort = null;
+  }
+}
+$('demoBtn').addEventListener('click', loadDemo);
+$('overlaySkip').addEventListener('click', () => { if (demoAbort) { demoAbort.abort(); demoAbort = null; } loadPhantom(); });
 
 async function entryFiles(entry, out) {
   if (entry.isFile) { await new Promise((res) => entry.file((f) => { out.push(f); res(); }, () => res())); }
@@ -2925,10 +3242,7 @@ new ResizeObserver(() => { drawHist(); updateSlice(); requestRender(); }).observ
   showOverlay('Starting WebGPU…');
   try {
     await initGPU();
-    $('overlayMsg').textContent = 'Generating demo phantom…';
-    await tick();
-    setVolume(makePhantom());
-    hideOverlay();
+    await loadDemo();
   } catch (err) {
     $('dsMeta').textContent = 'WebGPU unavailable';
     showOverlay(err.message || String(err), true);
