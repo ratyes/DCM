@@ -1,0 +1,2367 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}
+/* header toolbar */
+#bar { position: absolute; z-index: 5; top: 0; left: 0; right: 0; height: var(--hdr); box-sizing: border-box; display: flex; align-items: center; gap: 2px;
+  padding: 0 var(--gutter-r) 0 var(--gutter); background: var(--panel); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+#bar::-webkit-scrollbar { display: none; }
+.bname { font: 600 15px/1 var(--font-display); letter-spacing: -0.01em; margin-right: 12px; white-space: nowrap; }
+.grp { display: flex; align-items: center; gap: 2px; flex: none; }
+.sep { flex: none; width: 1px; height: 22px; background: var(--line); margin: 0 8px; }
+.tb { flex: none; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border-radius: 8px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); cursor: pointer; font: 600 12px/1 var(--font-mono); }
+.tb:hover { color: var(--fg); background: #151c25; }
+.tb[aria-pressed="true"] { color: var(--accent); background: #16233a; border-color: #27406b; }
+.tb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tb svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tb .gl { pointer-events: none; }
+.readout { flex: none; margin-left: auto; padding-left: 16px; white-space: nowrap; }
+.dsbox { flex: 0 1 auto; margin-left: 14px; text-align: right; max-width: 380px; min-width: 0; }
+.dsbox .dsname { font-size: 12.5px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsbox .mono { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.pop { position: fixed; z-index: 6; top: calc(var(--hdr) + 6px); width: 280px; box-sizing: border-box; background: var(--panel-solid); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+.pop.wide { width: 340px; max-height: calc(100vh - var(--hdr) - 24px); overflow-y: auto; }
+#tip { position: fixed; z-index: 9; pointer-events: none; display: flex; align-items: center; gap: 8px; white-space: nowrap; padding: 6px 9px;
+  background: #0a0e13; border: 1px solid #2c3746; border-radius: 6px; color: var(--fg); font: 500 12px/1 var(--font-body); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+#tip[hidden] { display: none; }
+</style></head><body>
+<title>Demo WebGPU</title>
+<style>
+/* Layout: full-bleed GPU canvas, floating instrument panels (dataset left, histogram bottom, tuning/details right).
+   Single dark look by choice: a viewing room, not a document. */
+:root {
+  --hdr: 48px; --qL: var(--gutter); --qR: calc(var(--gutter-r) + 304px); --qT: calc(var(--hdr) + 8px); --qB: 182px;
+  color-scheme: dark;
+  --bg: #080b10;
+  --panel: rgba(13, 17, 23, 0.82);
+  --panel-solid: #0e1319;
+  --line: #222a35;
+  --line-soft: #1a212b;
+  --fg: #dde4ec;
+  --muted: #8592a3;
+  --accent: #7ea8ff;
+  --accent-ink: #08101f;
+  --warn: #ffb36b;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.45 var(--font-body);
+  overflow: hidden;
+}
+#app { position: relative; width: 100%; height: 100%; overflow: hidden; }
+#gpu { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#gpu:active { cursor: grabbing; }
+
+.chip {
+  font: 500 10px/1 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 4px 6px; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent);
+}
+
+.panel {
+  position: absolute;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+h2 {
+  margin: 0 0 8px; font: 500 10.5px/1 var(--font-mono);
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+}
+.dsname { font: 500 14px/1.3 var(--font-display); overflow-wrap: anywhere; }
+.mono { font-family: var(--font-mono); font-size: 11.5px; }
+.muted { color: var(--muted); }
+.hint { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 500 12px/1 var(--font-body); color: var(--fg); background: #151c25;
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; cursor: pointer;
+}
+.btn:hover { border-color: #3a4656; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn:focus-visible, .iconbtn:focus-visible, .preset:focus-visible, input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.preset {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border-radius: 6px; border: 1px solid var(--line); background: #131a22;
+  color: var(--fg); font: 500 12.5px/1 var(--font-body); cursor: pointer; text-align: left;
+}
+.preset[aria-pressed="true"] { border-color: var(--accent); background: #16233a; }
+.preset .sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.preset .nm { flex: 1; min-width: 0; }
+kbd {
+  font: 500 10.5px/1 var(--font-mono); padding: 3px 5px; border-radius: 4px;
+  background: #0a0e13; border: 1px solid var(--line); color: var(--muted);
+}
+.keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; margin: 0; align-items: center; }
+.keys dt { margin: 0; }
+.keys dd { margin: 0; color: var(--muted); }
+
+#histo { left: var(--gutter); right: var(--gutter-r); bottom: 16px; height: 150px; padding: 8px 10px 4px; }
+#histo h2 { position: absolute; top: 10px; left: 14px; z-index: 1; margin: 0; }
+#hist { width: 100%; height: 100%; display: block; }
+
+#rightcol {
+  position: absolute; top: calc(var(--hdr) + 10px); right: var(--gutter-r); width: 288px;
+  max-height: calc(100% - var(--hdr) - 10px - 190px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#rightcol .panel { position: static; padding: 12px 14px; }
+.ctl { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; margin-bottom: 10px; }
+.ctl:last-child { margin-bottom: 0; }
+.ctl label { color: var(--fg); font-size: 12px; }
+.ctl output { font: 500 11.5px/1 var(--font-mono); color: var(--muted); }
+.ctl input { grid-column: 1 / -1; width: 100%; margin: 4px 0 0; accent-color: var(--accent); }
+.info { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 0; }
+.info dt { color: var(--muted); }
+.info dd { margin: 0; font: 11.5px/1.4 var(--font-mono); text-align: right; overflow-wrap: anywhere; }
+
+#layerList { margin-bottom: 4px; }
+.layer { padding: 9px 0; border-top: 1px solid var(--line-soft); }
+#layerList > .layer:first-child { border-top: 0; padding-top: 0; }
+.layer.off .lbot, .layer.off .lname { opacity: 0.45; }
+.ltop { display: flex; align-items: center; gap: 8px; }
+.lvis { margin: 0; width: 15px; height: 15px; flex: none; accent-color: var(--accent); cursor: pointer; }
+.lcol { width: 28px; height: 22px; padding: 0; flex: none; border: 1px solid var(--line); border-radius: 5px; background: none; cursor: pointer; }
+.lcol::-webkit-color-swatch-wrapper { padding: 0; }
+.lcol::-webkit-color-swatch { border: 0; border-radius: 4px; }
+.lcol::-moz-color-swatch { border: 0; border-radius: 4px; }
+.lname {
+  flex: 1; min-width: 0; background: transparent; border: 1px solid transparent; border-radius: 5px;
+  color: var(--fg); font: 500 12.5px/1.2 var(--font-body); padding: 4px 6px;
+}
+.lname:hover, .lname:focus { border-color: var(--line); background: #0b0f14; }
+.lrm {
+  flex: none; width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line);
+  background: #131a22; color: var(--muted); font: 500 14px/1 var(--font-body); cursor: pointer; padding: 0;
+}
+.lrm:hover { color: var(--fg); border-color: #3a4656; }
+.lbot { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding-left: 23px; }
+.lbot .dash { color: var(--muted); }
+.lnum {
+  width: 60px; flex: none; background: #0b0f14; border: 1px solid var(--line); border-radius: 5px;
+  color: var(--fg); font: 11.5px/1.2 var(--font-mono); padding: 4px 5px;
+}
+.lop { flex: 1; min-width: 0; margin: 0; accent-color: var(--accent); }
+.lcol:focus-visible, .lnum:focus-visible, .lname:focus-visible, .lvis:focus-visible, .lrm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#exitPresent {
+  display: none; position: absolute; top: 14px; right: var(--gutter-r);
+  font: 500 12px/1 var(--font-body); color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; cursor: pointer;
+}
+body.present .panel, body.present #bar, body.present #rightcol, body.present .pop, body.present #tip { display: none !important; }
+body.present #exitPresent { display: block; }
+
+#drop {
+  position: absolute; inset: 12px; border: 2px dashed var(--accent); border-radius: 14px;
+  background: rgba(8, 12, 20, 0.72); display: none; align-items: center; justify-content: center;
+  font: 500 18px/1.3 var(--font-display); color: var(--accent); pointer-events: none; text-align: center; padding: 0 24px;
+}
+body.dragging #drop { display: flex; }
+#overlay {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  background: rgba(6, 9, 13, 0.7); padding: 0 var(--gutter);
+}
+#overlay.show { display: flex; }
+#overlay .card {
+  max-width: min(440px, 100%); background: var(--panel-solid); border: 1px solid var(--line);
+  border-radius: 12px; padding: 18px 20px; text-align: center;
+}
+#overlay .card p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+#overlay .card .btn { margin-top: 14px; }
+#overlay.err .card { border-color: var(--warn); }
+.spin {
+  width: 18px; height: 18px; margin: 0 auto 10px; border-radius: 50%;
+  border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.9s linear infinite;
+}
+#overlay.err .spin { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
+
+#quad { position: absolute; left: var(--qL); right: var(--qR); top: var(--qT); bottom: var(--qB); display: none; gap: 6px; pointer-events: none; }
+body.multi #quad { display: grid; }
+body.lay-grid #quad { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+body.lay-focus #quad { grid-template-columns: minmax(0, 1fr) clamp(150px, 24%, 300px); grid-template-rows: repeat(3, minmax(0, 1fr)); }
+body.lay-single #quad { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+.qcell { position: relative; box-sizing: border-box; background: #000; border: 2px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; pointer-events: auto; }
+.qcell.q3d { background: transparent; border-color: transparent; pointer-events: none; }
+.qcell.active { border-color: var(--accent); }
+body.lay-focus .qcell.main { grid-column: 1; grid-row: 1 / 4; }
+body.lay-focus .qcell:not(.main) { grid-column: 2; }
+body.lay-single .qcell:not(.main) { display: none; }
+.qcell canvas { display: block; cursor: crosshair; touch-action: none; }
+.qlabel { position: absolute; top: 6px; left: 8px; font: 500 11px/1 var(--font-mono); pointer-events: none; text-shadow: 0 1px 2px #000; color: var(--muted); z-index: 1; }
+.q3d .qlabel { top: 8px; left: 12px; }
+body.multi #gpu { border: 2px solid var(--line); border-radius: 8px; box-sizing: border-box; }
+body.nohisto { --qB: 16px; }
+body.noright { --qR: var(--gutter-r); }
+body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
+.ctl label .ax { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
+.chk { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 10px; cursor: pointer; }
+.chk input { accent-color: var(--accent); margin: 0; }
+#gizmo { position: absolute; left: calc(var(--gutter) + 8px); bottom: calc(var(--qB) + 8px); width: 96px; height: 96px; pointer-events: none; }
+@media (max-width: 1250px) { .dsbox { display: none; } }
+@media (max-width: 720px) {
+  :root { --qR: var(--gutter-r); --qB: 150px; }
+  #gizmo { top: calc(var(--hdr) + 8px); bottom: auto; width: 72px; height: 72px; }
+  #histo { height: 110px; }
+  #rightcol { top: auto; bottom: 140px; left: var(--gutter); right: var(--gutter-r); width: auto; max-height: 36%; }
+  .bname, .readout { display: none; }
+}
+</style>
+
+<div id="app">
+  <canvas id="gpu" aria-label="Volume rendering viewport"></canvas>
+  <div id="quad"></div>
+  <canvas id="gizmo" width="192" height="192" aria-hidden="true"></canvas>
+
+  <header id="bar" role="toolbar" aria-label="Tools">
+    <span class="bname">Demo WebGPU</span>
+    <div class="grp">
+      <button class="tb" type="button" data-tip="Load DICOM files" aria-label="Load DICOM files" id="tbFiles"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg></button>
+      <button class="tb" type="button" data-tip="Load DICOM folder" aria-label="Load DICOM folder" id="tbFolder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+      <button class="tb" type="button" data-tip="Demo phantom" aria-label="Demo phantom" id="demoBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp" role="group" aria-label="Layout">
+      <button class="tb" type="button" data-tip="Normal: 3D only" data-key="Q" aria-label="Normal: 3D only" data-lay="off" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 8l3.5 2v4L12 16l-3.5-2v-4z"/></svg></button>
+      <button class="tb" type="button" data-tip="2 × 2 views" data-key="Q" aria-label="2 × 2 views" data-lay="grid" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="7" rx="1"/><rect x="13" y="4" width="8" height="7" rx="1"/><rect x="3" y="13" width="8" height="7" rx="1"/><rect x="13" y="13" width="8" height="7" rx="1"/></svg></button>
+      <button class="tb" type="button" data-tip="1 big + 3 small" data-key="Q" aria-label="1 big + 3 small" data-lay="focus" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="12" height="16" rx="1"/><rect x="17" y="4" width="4" height="4" rx="1"/><rect x="17" y="10" width="4" height="4" rx="1"/><rect x="17" y="16" width="4" height="4" rx="1"/></svg></button>
+      <button class="tb" type="button" data-tip="1 big only" data-key="Q" aria-label="1 big only" data-lay="single" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 8H7v2M15 8h2v2M9 16H7v-2M15 16h2v-2"/></svg></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp" role="group" aria-label="Big view">
+      <button class="tb" type="button" data-tip="Axial view" data-key="1" aria-label="Axial view" data-view="0" aria-pressed="false"><span class="gl" style="color:#4cf261">A</span></button>
+      <button class="tb" type="button" data-tip="Coronal view" data-key="2" aria-label="Coronal view" data-view="1" aria-pressed="false"><span class="gl" style="color:#5794ff">C</span></button>
+      <button class="tb" type="button" data-tip="Sagittal view" data-key="3" aria-label="Sagittal view" data-view="2" aria-pressed="false"><span class="gl" style="color:#ff4747">S</span></button>
+      <button class="tb" type="button" data-tip="3D volume view" data-key="4" aria-label="3D volume view" data-view="3" aria-pressed="false"><span class="gl" style="color:currentColor">3D</span></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp">
+      <button class="tb" type="button" data-tip="Window / level (slice brightness)" aria-label="Window / level (slice brightness)" id="tbWL" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
+      <button class="tb" type="button" data-tip="Crosshair on / off" data-key="C" aria-label="Crosshair on / off" id="tbCross" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg></button>
+      <button class="tb" type="button" data-tip="Reset 3D view" data-key="R" aria-label="Reset 3D view" id="tbReset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/></svg></button>
+      <button class="tb" type="button" data-tip="Presentation mode" data-key="H" aria-label="Presentation mode" id="tbPresent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp">
+      <button class="tb" type="button" data-tip="Detect teeth" aria-label="Detect teeth" id="tbTeeth"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6c-1.2-1.4-3.6-1.9-5.2-.5C5 7 5.4 9.4 6 11.2c.7 2 .6 5.3 1.4 7.8.4 1.2 1.7 1.2 2.2 0 .6-1.6.8-3 2.4-3s1.8 1.4 2.4 3c.5 1.2 1.8 1.2 2.2 0 .8-2.500.7-5.800 1.400-7.800.6-1.800 1-4.200-.8-5.700C15.600 4.100 13.200 4.600 12 6z"/></svg></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp" role="group" aria-label="Panels">
+      <button class="tb" type="button" data-tip="Tissues & colours panel" data-key="T" aria-label="Tissues & colours panel" data-panel="tissues" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12.500l9 5 9-5"/><path d="M3 16.500l9 5 9-5"/></svg></button>
+      <button class="tb" type="button" data-tip="Teeth settings panel" aria-label="Teeth settings panel" data-panel="toothP" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
+      <button class="tb" type="button" data-tip="Crosshair position panel" aria-label="Crosshair position panel" data-panel="crossP" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18"/><path d="M9.500 5.500L12 3l2.500 2.500M9.500 18.500L12 21l2.500-2.500M5.500 9.500L3 12l2.500 2.500M18.500 9.500L21 12l-2.500 2.500"/></svg></button>
+      <button class="tb" type="button" data-tip="Histogram" aria-label="Histogram" data-panel="histo" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-8M10 20V6M15 20v-6M20 20V4"/></svg></button>
+      <button class="tb" type="button" data-tip="Volume details panel" data-key="I" aria-label="Volume details panel" data-panel="info" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></button>
+      <button class="tb" type="button" data-tip="Advanced tuning panel" data-key="G" aria-label="Advanced tuning panel" data-panel="tune" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><circle cx="5" cy="9" r="2" fill="var(--panel-solid)"/><circle cx="12" cy="15" r="2" fill="var(--panel-solid)"/><circle cx="19" cy="8" r="2" fill="var(--panel-solid)"/></svg></button>
+    </div>
+    <span class="sep"></span>
+    <div class="grp">
+      <button class="tb" type="button" data-tip="Shortcuts and help" aria-label="Shortcuts and help" id="tbHelp" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.500 9.500a2.500 2.500 0 1 1 3.500 2.300c-.7.400-1 .9-1 1.700M12 17h.01"/></svg></button>
+    </div>
+    <span id="slInfo" class="readout mono muted">–</span>
+    <div class="dsbox"><div id="dsName" class="dsname">Demo phantom</div><div id="dsMeta" class="mono muted">Generating…</div></div>
+    <input id="fileIn" type="file" multiple hidden>
+    <input id="dirIn" type="file" webkitdirectory hidden>
+  </header>
+
+  <div id="popWL" class="pop" hidden>
+    <h2>Window / level</h2>
+    <div class="ctl"><label for="wlSlider">Level (brightness)</label><output id="wlOut"></output><input id="wlSlider" type="range" min="0" max="1" step="1" value="0"></div>
+    <div class="ctl"><label for="wwSlider">Width (contrast)</label><output id="wwOut"></output><input id="wwSlider" type="range" min="1" max="2" step="1" value="1"></div>
+    <div class="btnrow"><button id="wlReset" class="btn" type="button">Reset</button></div>
+    <p class="hint">Changes how the axial, coronal and sagittal slices are shown. It does not change the 3D view.</p>
+  </div>
+  <div id="popHelp" class="pop wide" hidden>
+    <h2>Shortcuts</h2>
+    <dl class="keys">
+      <dt><kbd>Drag</kbd></dt><dd>Rotate the 3D view</dd>
+      <dt><kbd>Right button</kbd></dt><dd>Pan</dd>
+      <dt><kbd>Wheel</kbd></dt><dd>Zoom (3D) or step a slice</dd>
+      <dt><kbd>Double-click</kbd></dt><dd>Make a view big</dd>
+      <dt><kbd>Q</kbd></dt><dd>Cycle layouts</dd>
+      <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Big view: axial, coronal, sagittal, 3D</dd>
+      <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next slice</dd>
+      <dt><kbd>C</kbd></dt><dd>Crosshair on / off</dd>
+      <dt><kbd>R</kbd></dt><dd>Reset 3D view</dd>
+      <dt><kbd>H</kbd></dt><dd>Presentation mode</dd>
+      <dt><kbd>T</kbd> <kbd>I</kbd> <kbd>G</kbd></dt><dd>Tissues, details, tuning panels</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close this box</dd>
+    </dl>
+    <h2 style="margin-top:14px">Loading data</h2>
+    <p class="hint" style="margin-top:0">Use the file or folder buttons, or drop files or folders anywhere in the window. CT and MR series: uncompressed, deflated, RLE, JPEG baseline and JPEG lossless. JPEG 2000 and JPEG-LS are not supported.</p>
+  </div>
+  <div id="tip" role="tooltip" hidden></div>
+
+  <section id="histo" class="panel">
+    <h2>Intensity histogram</h2>
+    <canvas id="hist"></canvas>
+  </section>
+
+  <div id="rightcol">
+    <aside id="tissues" class="panel">
+      <h2>Tissues &amp; colours</h2>
+      <div id="layerList"></div>
+      <p id="layerHint" class="hint" style="margin-top:0"></p>
+      <div class="btnrow"><button id="addLayer" class="btn" type="button">Add layer</button><button id="resetLayers" class="btn" type="button">Reset layers</button></div>
+    </aside>
+    <aside id="toothP" class="panel">
+      <h2>Teeth</h2>
+      <p class="hint" style="margin-top:0">Found automatically: the densest tooth-shaped structures are located, grown into dentin and root, separated from the jaw and coloured. No clicking needed.</p>
+      <div class="btnrow" style="margin:0 0 10px"><button id="detectTeeth" class="btn primary" type="button">Detect teeth</button><button id="clearTeeth" class="btn" type="button">Clear</button></div>
+      <label class="chk"><input id="tAuto" type="checkbox" checked> Detect when a scan loads</label>
+      <div class="ctl"><label for="tSens">Sensitivity <span class="muted">(more tooth ↔ less bone)</span></label><output id="tSensO"></output><input id="tSens" type="range" min="0" max="100" step="5" value="50"></div>
+      <div class="ctl"><label for="tSep">Separation from bone</label><output id="tSepO"></output><input id="tSep" type="range" min="0" max="2.5" step="0.1" value="1"></div>
+      <div class="ctl"><label for="tReach">Max root length</label><output id="tReachO"></output><input id="tReach" type="range" min="8" max="30" step="1" value="18"></div>
+      <div id="tStatus" class="mono muted" style="white-space:pre-wrap">No teeth detected yet</div>
+    </aside>
+    <aside id="crossP" class="panel">
+      <h2>Crosshair</h2>
+      <label class="chk"><input id="crossOn" type="checkbox" checked> Show crosshair <kbd>C</kbd></label>
+      <div id="crossBody"></div>
+      <div class="btnrow"><button id="crossCenter" class="btn" type="button">Centre</button></div>
+    </aside>
+    <aside id="tune" class="panel" hidden>
+      <h2>Tuning</h2>
+      <div id="tuneBody"></div>
+    </aside>
+    <aside id="info" class="panel" hidden>
+      <h2>Volume details</h2>
+      <dl id="infoBody" class="info"></dl>
+    </aside>
+  </div>
+
+  <button id="exitPresent" type="button">Exit presentation <kbd>H</kbd></button>
+  <div id="drop">Drop DICOM files or folders to load them</div>
+  <div id="overlay"><div class="card"><div class="spin"></div><p id="overlayMsg">Loading…</p><button id="overlayClose" class="btn" type="button" hidden>Dismiss</button></div></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ helpers */
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const MAX_DIM = 512;
+
+/* ------------------------------------------------------------------ WGSL */
+const WGSL = /* wgsl */`
+struct U {
+  camPos : vec4f,
+  right  : vec4f,
+  up     : vec4f,
+  fwd    : vec4f,
+  ext    : vec4f,   // half extents of the volume box in world units
+  params : vec4f,   // x steps, y density, z brightness, w lighting
+  texel  : vec4f,   // xyz = 1 / dims, w = edge threshold (0..1)
+  misc   : vec4f,   // x pixel angular size, y aspect, z solidity, w crosshair line width (px)
+  cross  : vec4f,   // xyz crosshair position in world units, w = crosshair visible (0/1)
+  tooth  : vec4f,   // rgb colour of grown teeth, w = opacity (0 = teeth colouring off)
+};
+@group(0) @binding(0) var<uniform> u : U;
+@group(0) @binding(1) var smp : sampler;
+@group(0) @binding(2) var vol : texture_3d<f32>;
+@group(0) @binding(3) var tfTex : texture_2d<f32>;
+@group(0) @binding(4) var seg : texture_3d<f32>;   // grown-tooth mask (1x1x1 zero when no teeth are picked)
+
+struct VOut {
+  @builtin(position) pos : vec4f,
+  @location(0) ndc : vec2f,
+};
+
+@vertex
+fn vs(@builtin(vertex_index) vi : u32) -> VOut {
+  let p = vec2f(f32((vi << 1u) & 2u), f32(vi & 2u));
+  var o : VOut;
+  o.pos = vec4f(p * 2.0 - 1.0, 0.0, 1.0);
+  o.ndc = p * 2.0 - 1.0;
+  return o;
+}
+
+fn hash12(p : vec2f) -> f32 {
+  var q = fract(vec3f(p.x, p.y, p.x) * 0.1031);
+  q = q + dot(q, q.yzx + 33.33);
+  return fract((q.x + q.y) * q.z);
+}
+
+// world position -> texture coordinate.
+// world x = columns, world y = slice axis (head up), world z = -rows (anterior toward the viewer)
+fn texCoord(p : vec3f) -> vec3f {
+  let e = u.ext.xyz;
+  return vec3f(p.x / e.x * 0.5 + 0.5, 0.5 - p.z / e.z * 0.5, p.y / e.y * 0.5 + 0.5);
+}
+
+fn dens(tc : vec3f) -> f32 {
+  return textureSampleLevel(vol, smp, tc, 0.0).r;
+}
+
+// Closest approach between the view ray and an axis-aligned line through the crosshair.
+// Returns (t along the ray, anti-aliased coverage 0..1); t < 0 means no hit.
+fn axisLine(ro : vec3f, rd : vec3f, c : vec3f, a : vec3f, cA : f32, extA : f32, tn : f32, tfar : f32) -> vec2f {
+  let b = dot(rd, a);
+  let den = 1.0 - b * b;
+  if (den < 1e-4) { return vec2f(-1.0, 0.0); }
+  let w = ro - c;
+  let dw = dot(rd, w);
+  let aw = dot(a, w);
+  let tl = (b * aw - dw) / den;
+  let sl = aw + tl * b;
+  if (tl < tn - 0.02 || tl > tfar + 0.02 || abs(cA + sl) > extA) { return vec2f(-1.0, 0.0); }
+  let dist = length(w + tl * rd - sl * a);
+  let px = max(tl, 0.001) * u.misc.x;
+  let hw = 0.5 * px * u.misc.w;
+  let cov = 1.0 - smoothstep(hw - 0.6 * px, hw + 0.6 * px, dist);
+  return vec2f(clamp(tl, tn, tfar), cov);
+}
+
+@fragment
+fn fs(fin : VOut) -> @location(0) vec4f {
+  let ro = u.camPos.xyz;
+  let rd = normalize(u.fwd.xyz + fin.ndc.x * u.right.xyz + fin.ndc.y * u.up.xyz);
+  let e = u.ext.xyz;
+
+  let rr = length(fin.ndc * vec2f(0.75, 1.0));
+  let bg = mix(vec3f(0.060, 0.071, 0.088), vec3f(0.018, 0.022, 0.030), clamp(rr * 0.85, 0.0, 1.0));
+
+  let invd = vec3f(1.0) / rd;
+  let ta = (-e - ro) * invd;
+  let tb = (e - ro) * invd;
+  let tmn = min(ta, tb);
+  let tmx = max(ta, tb);
+  let tn = max(max(tmn.x, max(tmn.y, tmn.z)), 0.0);
+  let tfar = min(tmx.x, min(tmx.y, tmx.z));
+  if (tfar <= tn) {
+    return vec4f(bg, 1.0);
+  }
+
+  let steps = u.params.x;
+  let dt = 2.0 / steps;
+  let maxIter = i32(steps * 1.9);
+  let ts = u.texel.xyz;
+  let kk = mix(0.4, 12.0, u.texel.w);
+  let lightDir = normalize(-rd + 0.35 * normalize(u.up.xyz) - 0.25 * normalize(u.right.xyz));
+
+  var t = tn + hash12(fin.pos.xy) * dt;
+  var accC = vec3f(0.0);
+  var accA = 0.0;
+
+  // crosshair: one line per axis (x red, y green, z blue) through u.cross.xyz
+  let cc = u.cross.xyz;
+  var lt = vec3f(-1.0);
+  var lc = vec3f(0.0);
+  var lv = vec3f(-1.0);   // volume transparency in front of each line, latched when the ray reaches it
+  if (u.cross.w > 0.5) {
+    let hx = axisLine(ro, rd, cc, vec3f(1.0, 0.0, 0.0), cc.x, e.x, tn, tfar);
+    let hy = axisLine(ro, rd, cc, vec3f(0.0, 1.0, 0.0), cc.y, e.y, tn, tfar);
+    let hz = axisLine(ro, rd, cc, vec3f(0.0, 0.0, 1.0), cc.z, e.z, tn, tfar);
+    lt = vec3f(hx.x, hy.x, hz.x);
+    lc = vec3f(hx.y, hy.y, hz.y);
+  }
+
+  for (var i = 0; i < maxIter; i = i + 1) {
+    if (t > tfar) { break; }
+    if (lt.x >= 0.0 && lv.x < 0.0 && t >= lt.x) { lv.x = 1.0 - accA; }
+    if (lt.y >= 0.0 && lv.y < 0.0 && t >= lt.y) { lv.y = 1.0 - accA; }
+    if (lt.z >= 0.0 && lv.z < 0.0 && t >= lt.z) { lv.z = 1.0 - accA; }
+    let p = ro + rd * t;
+    let tc = texCoord(p);
+    let s = dens(tc);
+    let tfv = textureSampleLevel(tfTex, smp, vec2f(s, 0.5), 0.0);
+    let m = smoothstep(0.35, 0.65, textureSampleLevel(seg, smp, tc, 0.0).r * 255.0) * step(0.001, u.tooth.w);   // mask bytes are 0/1, r8unorm reads them as 0/(1/255)
+    let a = mix(tfv.a, max(tfv.a, u.tooth.w), m);
+    if (a > 0.004) {
+      let gx = dens(tc + vec3f(ts.x, 0.0, 0.0)) - dens(tc - vec3f(ts.x, 0.0, 0.0));
+      let gv = dens(tc + vec3f(0.0, ts.y, 0.0)) - dens(tc - vec3f(0.0, ts.y, 0.0));
+      let gw = dens(tc + vec3f(0.0, 0.0, ts.z)) - dens(tc - vec3f(0.0, 0.0, ts.z));
+      let g = vec3f(gx / (4.0 * ts.x * e.x), gw / (4.0 * ts.z * e.y), -gv / (4.0 * ts.y * e.z));
+      let gm = length(g);
+      var shade = 1.0;
+      if (gm > 1e-5) {
+        let n = -g / gm;
+        let diff = max(dot(n, lightDir), 0.0);
+        let hv = normalize(lightDir - rd);
+        let spec = pow(max(dot(n, hv), 0.0), 40.0) * 0.35;
+        let lit = 0.30 + 0.85 * diff + spec;
+        let wgt = smoothstep(0.0, kk, gm);
+        shade = mix(1.0, lit, wgt * u.params.w);
+      }
+      let col = mix(tfv.rgb, u.tooth.rgb, m) * shade;
+      // "Solidity" pushes weak opacities toward an opaque surface, so tissue reads as solid matter
+      let aEff = 1.0 - pow(1.0 - clamp(a, 0.0, 0.999), 1.0 + 6.0 * u.misc.z);
+      let sigma = aEff * u.params.y * 64.0;
+      let aa = 1.0 - exp(-sigma * dt);
+      accC = accC + (1.0 - accA) * aa * col;
+      accA = accA + (1.0 - accA) * aa;
+      if (accA > 0.99) { break; }
+    }
+    t = t + dt;
+  }
+
+  var outc = accC * u.params.z + bg * (1.0 - accA);
+
+  // crosshair lines: full strength in front of the volume, dimmed (not hidden) behind solid tissue
+  if (u.cross.w > 0.5) {
+    if (lv.x < 0.0) { lv.x = 1.0 - accA; }
+    if (lv.y < 0.0) { lv.y = 1.0 - accA; }
+    if (lv.z < 0.0) { lv.z = 1.0 - accA; }
+    outc = mix(outc, vec3f(1.00, 0.28, 0.28), lc.x * mix(0.30, 1.0, lv.x));
+    outc = mix(outc, vec3f(0.30, 0.95, 0.38), lc.y * mix(0.30, 1.0, lv.y));
+    outc = mix(outc, vec3f(0.34, 0.58, 1.00), lc.z * mix(0.30, 1.0, lv.z));
+  }
+  return vec4f(outc, 1.0);
+}
+`;
+
+/* ------------------------------------------------------------------ tissue layers */
+// A layer paints one flat colour over a value range (Hounsfield units for CT).
+// Where layers overlap, their colours blend by opacity. Edges are feathered by "Edge softness".
+// Bone, tooth and metal start visible; tick any other layer to show it.
+const DEFAULT_LAYERS = [
+  { id: 'lung', name: 'Lung', from: -930, to: -450, color: '#8fc1f2', opacity: 0.18, visible: false, builtin: true },
+  { id: 'fat', name: 'Fat', from: -150, to: -30, color: '#e8c27a', opacity: 0.06, visible: false, builtin: true },
+  { id: 'soft', name: 'Soft tissue', from: -30, to: 130, color: '#d9826f', opacity: 0.16, visible: false, builtin: true },
+  { id: 'vessel', name: 'Vessels / contrast', from: 130, to: 320, color: '#e8402f', opacity: 0.7, visible: false, builtin: true },
+  { id: 'bone', name: 'Bone', from: 320, to: 2800, color: '#efe6d2', opacity: 0.85, visible: true, builtin: true },
+  { id: 'tooth', name: 'Teeth (automatic)', from: 0, to: 0, seg: true, color: '#ffc61a', opacity: 0.95, visible: true, builtin: true },
+  { id: 'metal', name: 'Metal', from: 2800, to: 3071, color: '#59d6e8', opacity: 1, visible: true, builtin: true },
+];
+const CUSTOM_COLORS = ['#c58bff', '#ff9ad1', '#7cf0b0', '#ffb36b', '#9bd1ff'];
+let layers = [];
+let layerSeq = 0;
+
+const state = { density: 1.0, brightness: 1.1, steps: 384, light: 0.8, edge: 0.35, soft: 30, solid: 0.65,
+  cross: true, cx: 0, cy: 0, cz: 0, lineW: 1.8 };
+const TUNING = [
+  { key: 'solid', label: 'Solidity', min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%', tf: false },
+  { key: 'density', label: 'Opacity', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', tf: false },
+  { key: 'brightness', label: 'Brightness', min: 0.5, max: 2, step: 0.05, fmt: (v) => v.toFixed(2), tf: false },
+  { key: 'light', label: 'Surface lighting', min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%', tf: false },
+  { key: 'edge', label: 'Edge threshold', min: 0, max: 1, step: 0.05, fmt: (v) => v.toFixed(2), tf: false },
+  { key: 'steps', label: 'Quality (ray steps)', min: 128, max: 768, step: 32, fmt: (v) => String(v), tf: false },
+  { key: 'soft', label: 'Layer edge softness', min: 5, max: 150, step: 5, fmt: (v) => String(v) + ' HU', tf: true },
+];
+
+/* ------------------------------------------------------------------ float16 */
+const f32buf = new Float32Array(1);
+const u32buf = new Uint32Array(f32buf.buffer);
+function toHalf(x) {
+  f32buf[0] = x;
+  const b = u32buf[0];
+  const sign = (b >>> 16) & 0x8000;
+  let exp = ((b >>> 23) & 0xff) - 127 + 15;
+  let man = b & 0x7fffff;
+  if (exp <= 0) {
+    if (exp < -10) return sign;
+    man = (man | 0x800000) >> (1 - exp);
+    return sign | ((man + 0x1000) >> 13);
+  }
+  if (exp >= 31) return sign | 0x7c00;
+  return sign | (exp << 10) | ((man + 0x1000) >> 13);
+}
+
+/* ------------------------------------------------------------------ DICOM */
+const LONG_VR = new Set(['OB', 'OD', 'OF', 'OL', 'OW', 'SQ', 'UC', 'UR', 'UT', 'UN']);
+function dstr(dv, off, len) {
+  let s = '';
+  const end = Math.min(dv.byteLength, off + len);
+  for (let i = off; i < end; i++) { const c = dv.getUint8(i); if (c === 0) break; s += String.fromCharCode(c); }
+  return s.trim();
+}
+const dnums = (s) => s.split('\\').map((x) => parseFloat(x));
+
+const TS_IMPL = '1.2.840.10008.1.2', TS_EXPL = '1.2.840.10008.1.2.1', TS_DEFL = '1.2.840.10008.1.2.1.99', TS_BIG = '1.2.840.10008.1.2.2';
+const TS_RLE = '1.2.840.10008.1.2.5';
+const TS_JPEG_BASE = ['1.2.840.10008.1.2.4.50', '1.2.840.10008.1.2.4.51'];
+const TS_JPEG_LOSSLESS = ['1.2.840.10008.1.2.4.57', '1.2.840.10008.1.2.4.70'];
+const TS_SUPPORTED_COMPRESSED = new Set([TS_RLE, ...TS_JPEG_BASE, ...TS_JPEG_LOSSLESS]);
+
+// Encapsulated pixel data: a Basic Offset Table item followed by fragment items.
+function readFragments(dv, pos, n) {
+  const bot = [], frags = [];
+  let first = true;
+  while (pos + 8 <= n) {
+    const g = dv.getUint16(pos, true), e = dv.getUint16(pos + 2, true), l = dv.getUint32(pos + 4, true);
+    pos += 8;
+    if (g !== 0xfffe || e === 0xe0dd) break;
+    if (e !== 0xe000) break;
+    if (first) { for (let i = 0; i + 4 <= l; i += 4) bot.push(dv.getUint32(pos + i, true)); first = false; }
+    else frags.push([pos, Math.max(0, Math.min(l, n - pos))]);
+    pos += l;
+  }
+  return { bot, frags };
+}
+
+function parseDicom(buf, opts) {
+  opts = opts || {};
+  const dv = new DataView(buf);
+  const n = buf.byteLength;
+  let pos = 0;
+  if (n > 132 && dstr(dv, 128, 4) === 'DICM') pos = 132;
+  const info = {};
+  const setOnce = (k, v) => { if (info[k] === undefined) info[k] = v; };
+  let syntax = '';
+  let explicit = null;
+  while (pos + 8 <= n) {
+    const group = dv.getUint16(pos, true);
+    const elem = dv.getUint16(pos + 2, true);
+    if (explicit === null && group !== 0x0002) {
+      if (syntax) {
+        if (syntax === TS_IMPL) explicit = false;
+        else if (syntax === TS_BIG) throw new Error('Big-endian DICOM is not supported.');
+        else if (syntax === TS_DEFL && !opts.inflated) return { deflatedAt: pos }; // caller inflates the dataset and parses again
+        else explicit = true; // explicit LE, deflated (after inflating) and every encapsulated syntax
+      } else {
+        const c1 = dv.getUint8(pos + 4), c2 = dv.getUint8(pos + 5);
+        explicit = c1 >= 65 && c1 <= 90 && c2 >= 65 && c2 <= 90;
+      }
+    }
+    const isExplicit = group === 0x0002 ? true : explicit;
+    let len, hdr, vr = '';
+    if (group === 0xfffe) { len = dv.getUint32(pos + 4, true); hdr = 8; }
+    else if (isExplicit) {
+      vr = String.fromCharCode(dv.getUint8(pos + 4), dv.getUint8(pos + 5));
+      if (LONG_VR.has(vr)) { len = dv.getUint32(pos + 8, true); hdr = 12; }
+      else { len = dv.getUint16(pos + 6, true); hdr = 8; }
+    } else { len = dv.getUint32(pos + 4, true); hdr = 8; }
+    const vpos = pos + hdr;
+    const key = group * 65536 + elem;
+    if (group === 0xfffe) { pos = vpos; continue; }
+    if (key === 0x7fe00010) {
+      info.syntax = syntax === TS_DEFL ? TS_EXPL : (syntax || (explicit ? TS_EXPL : TS_IMPL));
+      if (len === 0xffffffff) {
+        info.frag = readFragments(dv, vpos, n);
+        info.pixelOffset = vpos; info.pixelLen = 0;
+      } else { info.pixelOffset = vpos; info.pixelLen = len; }
+      break;
+    }
+    if (len === 0xffffffff) { pos = vpos; continue; }
+    if (vpos + len > n) break;
+    switch (key) {
+      case 0x00020010: syntax = dstr(dv, vpos, len); break;
+      case 0x00080060: setOnce('modality', dstr(dv, vpos, len)); break;
+      case 0x0008103e: setOnce('seriesDesc', dstr(dv, vpos, len)); break;
+      case 0x0020000e: setOnce('seriesUID', dstr(dv, vpos, len)); break;
+      case 0x00200013: setOnce('instance', parseInt(dstr(dv, vpos, len), 10)); break;
+      case 0x00200032: setOnce('ipp', dnums(dstr(dv, vpos, len))); break;
+      case 0x00200037: setOnce('iop', dnums(dstr(dv, vpos, len))); break;
+      case 0x00280002: setOnce('samples', dv.getUint16(vpos, true)); break;
+      case 0x00280004: setOnce('photometric', dstr(dv, vpos, len)); break;
+      case 0x00280008: setOnce('frames', parseInt(dstr(dv, vpos, len), 10)); break;
+      case 0x00280010: setOnce('rows', dv.getUint16(vpos, true)); break;
+      case 0x00280011: setOnce('cols', dv.getUint16(vpos, true)); break;
+      case 0x00280030: setOnce('ps', dnums(dstr(dv, vpos, len))); break;
+      case 0x00280100: setOnce('bits', dv.getUint16(vpos, true)); break;
+      case 0x00280103: setOnce('signed', dv.getUint16(vpos, true) === 1); break;
+      case 0x00281052: setOnce('intercept', parseFloat(dstr(dv, vpos, len))); break;
+      case 0x00281053: setOnce('slope', parseFloat(dstr(dv, vpos, len))); break;
+      case 0x00180050: setOnce('thickness', parseFloat(dstr(dv, vpos, len))); break;
+      case 0x00180088: setOnce('spacingBetween', parseFloat(dstr(dv, vpos, len))); break;
+    }
+    pos = vpos + len;
+  }
+  if (info.pixelOffset === undefined || !info.rows || !info.cols) return null;
+  if ((info.samples || 1) !== 1) throw new Error('Colour (multi-sample) DICOM images are not supported.');
+  if (info.bits !== 8 && info.bits !== 16) throw new Error('Only 8-bit and 16-bit DICOM pixel data is supported.');
+  const frames = Math.max(1, info.frames || 1);
+  if (info.frag) {
+    if (!TS_SUPPORTED_COMPRESSED.has(info.syntax)) {
+      const names = { '1.2.840.10008.1.2.4.80': 'JPEG-LS', '1.2.840.10008.1.2.4.81': 'JPEG-LS', '1.2.840.10008.1.2.4.90': 'JPEG 2000', '1.2.840.10008.1.2.4.91': 'JPEG 2000' };
+      throw new Error('This series uses ' + (names[info.syntax] || 'a compression format') + ' (' + info.syntax + '), which this viewer cannot decode yet.\nSupported: uncompressed, deflated, RLE, JPEG baseline and JPEG lossless.');
+    }
+    if (!info.frag.frags.length) return null;
+  } else if (info.pixelLen < info.rows * info.cols * (info.bits / 8) * frames) return null;
+  if (!isFinite(info.slope) || info.slope === undefined) info.slope = 1;
+  if (!isFinite(info.intercept) || info.intercept === undefined) info.intercept = 0;
+  return info;
+}
+
+/* ---- compressed pixel data codecs ---- */
+async function inflateDataset(buf, at) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser cannot decompress deflated DICOM (no DecompressionStream support).');
+  const stream = new Blob([buf.slice(at)]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const body = await new Response(stream).arrayBuffer();
+  const out = new Uint8Array(at + body.byteLength);
+  out.set(new Uint8Array(buf, 0, at));
+  out.set(new Uint8Array(body), at);
+  return out.buffer;
+}
+
+// Bytes of one frame out of the encapsulated fragment list.
+function frameBytes(buf, frag, frame, nframes) {
+  const { bot, frags } = frag;
+  let sel = frags;
+  if (nframes > 1) {
+    if (bot.length === nframes) {
+      const base = frags[0][0];
+      const lo = bot[frame], hi = frame + 1 < nframes ? bot[frame + 1] : Infinity;
+      sel = frags.filter((f) => f[0] - base >= lo && f[0] - base < hi);
+    } else if (frags.length === nframes) sel = [frags[frame]];
+  }
+  if (!sel.length) throw new Error('Could not locate frame ' + (frame + 1) + ' in the compressed pixel data.');
+  if (sel.length === 1) return new Uint8Array(buf, sel[0][0], sel[0][1]);
+  let total = 0;
+  for (const f of sel) total += f[1];
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const f of sel) { out.set(new Uint8Array(buf, f[0], f[1]), o); o += f[1]; }
+  return out;
+}
+
+function decodeRLE(data, info) {
+  const cnt = info.rows * info.cols;
+  const bytes = info.bits === 8 ? 1 : 2;
+  const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  if (data.length < 64 || dv.getUint32(0, true) < bytes) throw new Error('Unsupported RLE layout (expected one segment per byte of a single-sample image).');
+  const out = new Uint8Array(cnt * bytes);
+  for (let s = 0; s < bytes; s++) {
+    let sp = dv.getUint32(4 + 4 * s, true), o = 0;
+    const dst = bytes === 1 ? 0 : 1 - s; // segment 0 holds the most significant byte
+    while (o < cnt && sp < data.length) {
+      const n = data[sp++];
+      if (n < 128) { for (let k = 0; k <= n && o < cnt; k++) out[(o++) * bytes + dst] = data[sp++]; }
+      else if (n > 128) { const v = data[sp++]; for (let k = 0; k < 257 - n && o < cnt; k++) out[(o++) * bytes + dst] = v; }
+    }
+  }
+  if (bytes === 1) return out;
+  return info.signed ? new Int16Array(out.buffer) : new Uint16Array(out.buffer);
+}
+
+// 8-bit baseline JPEG goes through the browser's own decoder.
+async function decodeJpegBrowser(data, info) {
+  let bmp;
+  try { bmp = await createImageBitmap(new Blob([data], { type: 'image/jpeg' }), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' }); }
+  catch (err) { throw new Error('The browser could not decode this JPEG (12-bit extended JPEG is not supported by browsers).'); }
+  const w = bmp.width, h = bmp.height;
+  if (w !== info.cols || h !== info.rows) throw new Error('Compressed image size does not match the DICOM header.');
+  const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(w, h) : Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(bmp, 0, 0);
+  if (bmp.close) bmp.close();
+  const px = g.getImageData(0, 0, w, h).data;
+  const out = new Uint8Array(w * h);
+  for (let i = 0; i < out.length; i++) out[i] = px[i * 4];
+  return out;
+}
+
+// Lossless JPEG (SOF3, single component, predictors 1-7, point transform, restart intervals).
+function decodeJpegLossless(d, info) {
+  let p = 2, prec = 16, H = 0, W = 0, nc = 1, ri = 0, pred = 1, pt = 0;
+  const tabs = {};
+  const sel = [];
+  if (d[0] !== 0xff || d[1] !== 0xd8) throw new Error('Invalid JPEG data (no SOI marker).');
+  const r16 = (q) => (d[q] << 8) | d[q + 1];
+  let sos = false;
+  while (p + 4 <= d.length && !sos) {
+    if (d[p] !== 0xff) { p++; continue; }
+    const m = d[p + 1]; p += 2;
+    if (m === 0xff) { p--; continue; }
+    if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) continue;
+    const len = r16(p);
+    if (m === 0xc3) { prec = d[p + 2]; H = r16(p + 3); W = r16(p + 5); nc = d[p + 7]; }
+    else if (m === 0xc4) {
+      let q = p + 2;
+      const end = p + len;
+      while (q < end) {
+        const id = d[q++];
+        const counts = d.subarray(q, q + 16); q += 16;
+        let tot = 0; for (let i = 0; i < 16; i++) tot += counts[i];
+        const vals = d.subarray(q, q + tot); q += tot;
+        const maxcode = new Int32Array(17).fill(-1), valptr = new Int32Array(17), mincode = new Int32Array(17);
+        let code = 0, k = 0;
+        for (let l = 1; l <= 16; l++) {
+          valptr[l] = k; mincode[l] = code;
+          const c = counts[l - 1];
+          code += c; k += c;
+          maxcode[l] = c ? code - 1 : -1;
+          code <<= 1;
+        }
+        tabs[id] = { maxcode, valptr, mincode, vals };
+      }
+    }
+    else if (m === 0xdd) ri = r16(p + 2);
+    else if (m === 0xda) {
+      const ns = d[p + 2];
+      for (let i = 0; i < ns; i++) sel.push(d[p + 4 + i * 2] >> 4);
+      pred = d[p + 3 + ns * 2];
+      pt = d[p + 5 + ns * 2] & 15;
+      sos = true;
+    }
+    else if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) throw new Error('This JPEG is not lossless (marker 0x' + m.toString(16) + '); only baseline and lossless JPEG are supported.');
+    p += len;
+  }
+  if (!sos || !W || !H) throw new Error('Corrupt lossless JPEG stream.');
+  if (nc !== 1) throw new Error('Only single-component (greyscale) lossless JPEG is supported.');
+  if (W !== info.cols || H !== info.rows) throw new Error('Compressed image size does not match the DICOM header.');
+  const tab = tabs[sel[0]] || tabs[0];
+  if (!tab) throw new Error('Lossless JPEG is missing its Huffman table.');
+  const { maxcode, valptr, mincode, vals } = tab;
+
+  let bitBuf = 0, bitCnt = 0, atMarker = false;
+  const readBit = () => {
+    if (bitCnt === 0) {
+      if (atMarker) bitBuf = 0;
+      else {
+        let b = d[p++];
+        if (b === 0xff) { if (d[p] === 0) p++; else { atMarker = true; p--; b = 0; } }
+        bitBuf = b;
+      }
+      bitCnt = 8;
+    }
+    bitCnt--;
+    return (bitBuf >> bitCnt) & 1;
+  };
+  const readBits = (n) => { let v = 0; for (let i = 0; i < n; i++) v = (v << 1) | readBit(); return v; };
+
+  const out = new Int32Array(W * H);
+  const init = 1 << (prec - pt - 1);
+  const mask = (1 << (prec - pt)) - 1;
+  let start = 0;
+  const total = W * H;
+  for (let idx = 0; idx < total; idx++) {
+    if (ri > 0 && idx > 0 && idx % ri === 0) {
+      bitCnt = 0; atMarker = false;
+      while (p + 1 < d.length && !(d[p] === 0xff && d[p + 1] >= 0xd0 && d[p + 1] <= 0xd7)) p++;
+      p += 2;
+      start = idx;
+    }
+    // Huffman category
+    let code = 0, sym = 0;
+    for (let l = 1; l <= 16; l++) {
+      code = (code << 1) | readBit();
+      if (code <= maxcode[l]) { sym = vals[valptr[l] + code - mincode[l]]; break; }
+    }
+    let diff;
+    if (sym === 0) diff = 0;
+    else if (sym === 16) diff = 32768;
+    else { diff = readBits(sym); if (diff < (1 << (sym - 1))) diff -= (1 << sym) - 1; }
+
+    const x = idx % W, rel = idx - start;
+    let pr;
+    if (rel === 0) pr = init;
+    else {
+      const ra = out[idx - 1] >> pt;
+      if (rel < W) pr = ra;
+      else {
+        const rb = out[idx - W] >> pt;
+        if (x === 0) pr = rb;
+        else {
+          const rc = out[idx - W - 1] >> pt;
+          switch (pred) {
+            case 2: pr = rb; break;
+            case 3: pr = rc; break;
+            case 4: pr = ra + rb - rc; break;
+            case 5: pr = ra + ((rb - rc) >> 1); break;
+            case 6: pr = rb + ((ra - rc) >> 1); break;
+            case 7: pr = (ra + rb) >> 1; break;
+            default: pr = ra;
+          }
+        }
+      }
+    }
+    out[idx] = ((pr + diff) & mask) << pt;
+  }
+  if (info.signed) {
+    const res = new Int16Array(total), sh = 32 - prec;
+    for (let i = 0; i < total; i++) res[i] = (out[i] << sh) >> sh;
+    return res;
+  }
+  return Uint16Array.from(out);
+}
+
+async function decodeSlice(buf, info, frame) {
+  const cnt = info.rows * info.cols;
+  if (info.frag) {
+    const data = frameBytes(buf, info.frag, frame, Math.max(1, info.frames || 1));
+    if (info.syntax === TS_RLE) return decodeRLE(data, info);
+    if (TS_JPEG_LOSSLESS.includes(info.syntax)) return decodeJpegLossless(data, info);
+    return decodeJpegBrowser(data, info);
+  }
+  const bytes = info.bits === 8 ? 1 : 2;
+  const off = info.pixelOffset + frame * cnt * bytes;
+  if (bytes === 1) return new Uint8Array(buf, off, cnt);
+  const copy = buf.slice(off, off + cnt * 2);
+  return info.signed ? new Int16Array(copy) : new Uint16Array(copy);
+}
+
+async function buildVolume(entries, progress) {
+  const groups = new Map();
+  for (const e of entries) {
+    const k = (e.info.seriesUID || '') + '|' + e.info.rows + 'x' + e.info.cols;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  const count = (g) => g.reduce((a, e) => a + Math.max(1, e.info.frames || 1), 0);
+  let best = null;
+  for (const g of groups.values()) if (!best || count(g) > count(best)) best = g;
+
+  const first = best[0].info;
+  const slices = [];
+  best.forEach((e, idx) => {
+    const nf = Math.max(1, e.info.frames || 1);
+    for (let f = 0; f < nf; f++) slices.push({ e, frame: f, order: idx * 1000 + f, multi: nf > 1 });
+  });
+  let normal = null;
+  if (first.iop && first.iop.length === 6) {
+    const r = first.iop.slice(0, 3), c = first.iop.slice(3, 6);
+    normal = [r[1] * c[2] - r[2] * c[1], r[2] * c[0] - r[0] * c[2], r[0] * c[1] - r[1] * c[0]];
+  }
+  const spGuess = first.spacingBetween || first.thickness || (first.ps && first.ps[0]) || 1;
+  let physical = true;
+  for (const s of slices) {
+    const inf = s.e.info;
+    if (s.multi) { s.pos = s.frame * spGuess; physical = false; }
+    else if (normal && inf.ipp && inf.ipp.length === 3) s.pos = inf.ipp[0] * normal[0] + inf.ipp[1] * normal[1] + inf.ipp[2] * normal[2];
+    else if (Number.isFinite(inf.instance)) { s.pos = inf.instance; physical = false; }
+    else { s.pos = s.order; physical = false; }
+  }
+  slices.sort((a, b) => a.pos - b.pos);
+
+  let sz = spGuess;
+  if (physical && slices.length > 1) {
+    const d = [];
+    for (let i = 1; i < slices.length; i++) { const x = Math.abs(slices[i].pos - slices[i - 1].pos); if (x > 1e-4) d.push(x); }
+    if (d.length) { d.sort((a, b) => a - b); sz = d[d.length >> 1]; }
+  }
+  const ps = first.ps && first.ps.length >= 2 && first.ps[0] > 0 ? first.ps : [1, 1];
+  const rows = first.rows, cols = first.cols;
+
+  let sxy = Math.max(1, Math.ceil(Math.max(rows, cols) / MAX_DIM));
+  let sk = Math.max(1, Math.ceil(slices.length / MAX_DIM));
+  while (Math.floor(cols / sxy) * Math.floor(rows / sxy) * Math.ceil(slices.length / sk) > 170e6) sxy++;
+  const nx = Math.floor(cols / sxy), ny = Math.floor(rows / sxy);
+  const kept = [];
+  for (let i = 0; i < slices.length; i += sk) kept.push(slices[i]);
+  const nz = kept.length;
+  if (nz < 2) throw new Error('Need at least two slices to build a volume (found ' + nz + ').');
+
+  const raw = new Int16Array(nx * ny * nz);
+  for (let zi = 0; zi < nz; zi++) {
+    const s = kept[zi];
+    const inf = s.e.info;
+    const arr = await decodeSlice(s.e.buf, inf, s.frame);
+    const slope = inf.slope, icpt = inf.intercept;
+    const base = zi * nx * ny;
+    for (let j = 0; j < ny; j++) {
+      const rowOff = j * sxy * cols;
+      const o = base + j * nx;
+      for (let i = 0; i < nx; i++) {
+        const v = Math.round(arr[rowOff + i * sxy] * slope + icpt);
+        raw[o + i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+      }
+    }
+    if (zi % 6 === 0) { progress('Building volume ' + Math.round(((zi + 1) / nz) * 100) + '%'); await tick(); }
+  }
+  return {
+    nx, ny, nz, sx: ps[1] * sxy, sy: ps[0] * sxy, sz: sz * sk, raw,
+    modality: first.modality || '', name: first.seriesDesc || 'DICOM series',
+    sourceSlices: slices.length, sourceDims: [cols, rows],
+  };
+}
+
+/* ------------------------------------------------------------------ phantom */
+function makePhantom() {
+  const nx = 192, ny = 150, nz = 160, sx = 1.9, sy = 1.9, sz = 2.2;
+  const data = new Int16Array(nx * ny * nz);
+  const rnd = (i, j, k) => {
+    let h = Math.imul(i, 374761393) ^ Math.imul(j, 668265263) ^ Math.imul(k, 1274126177);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+  const ell = (X, Y, Z, cx, cy, cz, rx, ry, rz) => {
+    const a = (X - cx) / rx, b = (Y - cy) / ry, c = (Z - cz) / rz;
+    return a * a + b * b + c * c;
+  };
+  for (let k = 0; k < nz; k++) {
+    const Z = (k - nz / 2 + 0.5) * sz;
+    for (let j = 0; j < ny; j++) {
+      const Y = (j - ny / 2 + 0.5) * sy;
+      for (let i = 0; i < nx; i++) {
+        const X = (i - nx / 2 + 0.5) * sx;
+        const nz0 = rnd(i, j, k) - 0.5;
+        const rb = Math.hypot(X / 150, Y / 92);
+        let v = -1000 + nz0 * 6;
+        if (rb <= 1 && Math.abs(Z) < 170) {
+          v = (rb > 0.93 ? -85 : 38) + nz0 * 14;
+          // lungs
+          for (let sg = -1; sg <= 1; sg += 2) {
+            const r = ell(X, Y, Z, sg * 62, -8, 60, 50, 58, 95);
+            if (r < 1) {
+              let lv = -830 + nz0 * 40;
+              const a = Math.sin(0.11 * X + 0.06 * Z), b = Math.sin(0.10 * Y - 0.05 * Z + 1.3);
+              if (a * a + b * b < 0.03) lv = -300;
+              v = r > 0.88 ? lv + (r - 0.88) / 0.12 * (60 - lv) : lv;
+            }
+          }
+          // liver, spleen, kidneys
+          if (ell(X, Y, Z, -62, -15, -40, 70, 55, 50) < 1) v = 72 + nz0 * 12;
+          if (ell(X, Y, Z, 78, 10, -30, 25, 20, 40) < 1) v = 76 + nz0 * 12;
+          for (let sg = -1; sg <= 1; sg += 2) if (ell(X, Y, Z, sg * 55, 38, -90, 18, 14, 34) < 1) v = 140 + nz0 * 14;
+          // heart and great vessels
+          if (ell(X, Y, Z, 28, -38, 55, 42, 38, 48) < 1) v = 55 + nz0 * 12;
+          if (ell(X, Y, Z, 28, -38, 55, 30, 26, 36) < 1) v = 230 + nz0 * 14;
+          if (Z > 55 && Z < 108 && (X - 8) * (X - 8) + (Y + 25) * (Y + 25) < 121) v = 240 + nz0 * 10;
+          if (Z < 95 && (X + 15) * (X + 15) + (Y - 25) * (Y - 25) < 121) v = 240 + nz0 * 10;
+          // spine
+          const dBody = X * X + (Y - 45) * (Y - 45);
+          if (dBody < 361) v = Math.sin(Z * 0.21) > 0.82 ? 200 : 650 + nz0 * 40;
+          const dCan = X * X + (Y - 70) * (Y - 70);
+          if (dCan < 49) v = 25;
+          else if (dCan < 144 && Y > 66) v = 550 + nz0 * 30;
+          if (Math.abs(X) < 3 && Y > 80 && Y < 90 && Math.sin(Z * 0.21) < 0.9) v = 540;
+          // ribs and sternum
+          const rr = Math.hypot(X / 134, Y / 80);
+          if (rr > 0.9 && rr < 0.97 && Z > -30 && Z < 140 && ((Z + X * 0.15 + 400) % 26) < 8) v = 620 + nz0 * 30;
+          if (Math.abs(X) < 14 && Y > -82 && Y < -70 && Z > 40 && Z < 130) v = 560 + nz0 * 30;
+          // two metal fixation rods beside the spine
+          if (Math.abs(Z) < 110 && (Math.abs(X) - 14) * (Math.abs(X) - 14) + (Y - 62) * (Y - 62) < 7) v = 3000 + nz0 * 20;
+        }
+        data[(k * ny + j) * nx + i] = v;
+      }
+    }
+  }
+  return { nx, ny, nz, sx, sy, sz, raw: data, modality: 'CT', name: 'Demo phantom (synthetic CT)', sourceSlices: nz, sourceDims: [nx, ny] };
+}
+
+/* ------------------------------------------------------------------ GPU */
+let device = null, context = null, format = null, pipeline = null;
+let uniformBuf = null, sampler = null, volTex = null, tfTex = null, bindGroup = null, maskTex = null, dummyMask = null;
+let toothUni = [1, 0.9, 0.6, 0];
+let vol = null;          // current volume descriptor
+let tfData = new Uint8Array(1024 * 4);
+let adapterDesc = '';
+
+const canvas = $('gpu');
+
+function showOverlay(msg, isErr) {
+  $('overlay').className = 'show' + (isErr ? ' err' : '');
+  $('overlayMsg').textContent = msg;
+  $('overlayClose').hidden = !isErr;
+}
+function hideOverlay() { $('overlay').className = ''; }
+$('overlayClose').addEventListener('click', hideOverlay);
+
+async function initGPU() {
+  if (!navigator.gpu) throw new Error('WebGPU is not available in this browser or frame.\nTry a recent Chrome, Edge or Safari, or a Firefox build with WebGPU enabled.');
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  if (!adapter) throw new Error('No WebGPU adapter was found. Check that hardware acceleration is turned on.');
+  try { const ai = adapter.info || (await adapter.requestAdapterInfo?.()); if (ai) adapterDesc = [ai.vendor, ai.architecture, ai.description].filter(Boolean).join(' ').trim(); } catch (e) { /* optional */ }
+  device = await adapter.requestDevice();
+  device.addEventListener('uncapturederror', (ev) => showOverlay('GPU error: ' + ev.error.message, true));
+  device.lost.then((l) => showOverlay('GPU device lost: ' + l.message + '\nReload the page to continue.', true));
+  context = canvas.getContext('webgpu');
+  format = navigator.gpu.getPreferredCanvasFormat();
+  context.configure({ device, format, alphaMode: 'opaque' });
+
+  const module = device.createShaderModule({ code: WGSL });
+  const ci = await module.getCompilationInfo();
+  const errs = ci.messages.filter((m) => m.type === 'error');
+  if (errs.length) throw new Error('Shader failed to compile:\n' + errs.map((m) => m.lineNum + ':' + m.linePos + ' ' + m.message).join('\n'));
+  pipeline = device.createRenderPipeline({
+    layout: 'auto',
+    vertex: { module, entryPoint: 'vs' },
+    fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+    primitive: { topology: 'triangle-list' },
+  });
+  uniformBuf = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge' });
+  tfTex = device.createTexture({ size: [1024, 1, 1], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+  dummyMask = device.createTexture({ size: [1, 1, 1], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING });
+  maskTex = dummyMask;
+}
+
+function rebuildBindGroup() {
+  if (!volTex) return;
+  bindGroup = device.createBindGroup({
+    layout: pipeline.getBindGroupLayout(0),
+    entries: [
+      { binding: 0, resource: { buffer: uniformBuf } },
+      { binding: 1, resource: sampler },
+      { binding: 2, resource: volTex.createView({ dimension: '3d' }) },
+      { binding: 3, resource: tfTex.createView() },
+      { binding: 4, resource: maskTex.createView({ dimension: '3d' }) },
+    ],
+  });
+}
+
+function uploadMask(mask) {
+  const { nx, ny, nz } = vol;
+  const t = device.createTexture({ size: [nx, ny, nz], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+  const sliceVox = nx * ny;
+  const chunk = Math.max(1, Math.floor(32e6 / sliceVox));
+  for (let z0 = 0; z0 < nz; z0 += chunk) {
+    const cnt = Math.min(chunk, nz - z0);
+    device.queue.writeTexture({ texture: t, origin: [0, 0, z0] }, mask.subarray(z0 * sliceVox, (z0 + cnt) * sliceVox), { bytesPerRow: nx, rowsPerImage: ny }, [nx, ny, cnt]);
+  }
+  const old = maskTex;
+  maskTex = t;
+  rebuildBindGroup();
+  if (old && old !== dummyMask) old.destroy();
+  requestRender();
+}
+function clearTeethMask() {
+  if (!device) return;
+  const old = maskTex;
+  maskTex = dummyMask;
+  rebuildBindGroup();
+  if (old && old !== dummyMask) old.destroy();
+  requestRender();
+}
+
+function uploadVolume(v) {
+  const lim = device.limits.maxTextureDimension3D;
+  if (v.nx > lim || v.ny > lim || v.nz > lim) throw new Error('Volume ' + v.nx + '×' + v.ny + '×' + v.nz + ' exceeds this GPU\'s 3D texture limit of ' + lim + '.');
+  if (volTex) volTex.destroy();
+  volTex = device.createTexture({ size: [v.nx, v.ny, v.nz], dimension: '3d', format: 'r16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
+  const sliceVox = v.nx * v.ny;
+  const chunk = Math.max(1, Math.floor(32e6 / (sliceVox * 2)));
+  for (let z0 = 0; z0 < v.nz; z0 += chunk) {
+    const cnt = Math.min(chunk, v.nz - z0);
+    device.queue.writeTexture(
+      { texture: volTex, origin: [0, 0, z0] },
+      v.half.subarray(z0 * sliceVox, (z0 + cnt) * sliceVox),
+      { bytesPerRow: v.nx * 2, rowsPerImage: v.ny },
+      [v.nx, v.ny, cnt]);
+  }
+  rebuildBindGroup();
+}
+
+/* ------------------------------------------------------------------ transfer function */
+const hexToRgb = (h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const sstep = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
+
+function buildTF() {
+  const TL = layers.find((l) => l.id === 'tooth');
+  toothUni = TL && TL.visible ? [...hexToRgb(TL.color).map((c) => c / 255), TL.opacity] : [1, 1, 1, 0];
+  if (!vol) return;
+  const span = vol.hi - vol.lo;
+  const f = Math.max(1e-6, state.soft * (span / 4095));
+  const act = layers.filter((l) => l.visible && l.opacity > 0 && !l.seg).map((l) => ({
+    lo: Math.min(l.from, l.to), hi: Math.max(l.from, l.to), c: hexToRgb(l.color), o: l.opacity,
+  }));
+  const rgb = new Float32Array(1024 * 3);
+  const has = new Uint8Array(1024);
+  for (let i = 0; i < 1024; i++) {
+    const val = vol.lo + (i / 1023) * span;
+    let amax = 0, tot = 0, r = 0, g = 0, b = 0;
+    for (const L of act) {
+      const up = L.lo <= vol.lo ? 1 : sstep((val - (L.lo - f)) / (2 * f));
+      const dn = L.hi >= vol.hi ? 0 : sstep((val - (L.hi - f)) / (2 * f));
+      const a = L.o * up * (1 - dn);
+      if (a <= 0) continue;
+      if (a > amax) amax = a;
+      tot += a; r += L.c[0] * a; g += L.c[1] * a; b += L.c[2] * a;
+    }
+    if (tot > 0) { rgb[i * 3] = r / tot; rgb[i * 3 + 1] = g / tot; rgb[i * 3 + 2] = b / tot; has[i] = 1; }
+    tfData[i * 4 + 3] = Math.round(clamp(amax, 0, 1) * 255);
+  }
+  // Texels with no layer borrow the nearest colour, so linear filtering never darkens an edge.
+  let first = -1;
+  for (let i = 0; i < 1024; i++) if (has[i]) { first = i; break; }
+  if (first < 0) { rgb.fill(255); }
+  else {
+    for (let i = 0; i < first; i++) { rgb[i * 3] = rgb[first * 3]; rgb[i * 3 + 1] = rgb[first * 3 + 1]; rgb[i * 3 + 2] = rgb[first * 3 + 2]; }
+    for (let i = first + 1; i < 1024; i++) {
+      if (!has[i]) { rgb[i * 3] = rgb[(i - 1) * 3]; rgb[i * 3 + 1] = rgb[(i - 1) * 3 + 1]; rgb[i * 3 + 2] = rgb[(i - 1) * 3 + 2]; }
+    }
+  }
+  for (let i = 0; i < 1024; i++) {
+    tfData[i * 4] = Math.round(rgb[i * 3]);
+    tfData[i * 4 + 1] = Math.round(rgb[i * 3 + 1]);
+    tfData[i * 4 + 2] = Math.round(rgb[i * 3 + 2]);
+  }
+  if (device) device.queue.writeTexture({ texture: tfTex }, tfData, { bytesPerRow: 4096 }, [1024, 1, 1]);
+  drawHist();
+}
+
+/* ------------------------------------------------------------------ volume setup */
+function prepareVolume(v) {
+  const n = v.raw.length;
+  let mn = 32767, mx = -32768;
+  for (let i = 0; i < n; i++) { const x = v.raw[i]; if (x < mn) mn = x; if (x > mx) mx = x; }
+  v.min = mn; v.max = mx;
+  v.ct = v.modality === 'CT';
+  if (v.ct) { v.lo = -1024; v.hi = 3071; }
+  else {
+    const bins = new Uint32Array(4096);
+    const span = Math.max(1, mx - mn);
+    for (let i = 0; i < n; i++) bins[Math.min(4095, Math.floor(((v.raw[i] - mn) / span) * 4096))]++;
+    let acc = 0, p = 4095;
+    const target = n * 0.997;
+    for (let b = 0; b < 4096; b++) { acc += bins[b]; if (acc >= target) { p = b; break; } }
+    v.lo = mn; v.hi = Math.max(mn + 1, mn + (p / 4096) * span);
+  }
+  const lut = new Uint16Array(65536);
+  const range = v.hi - v.lo;
+  for (let i = 0; i < 65536; i++) lut[i] = toHalf(clamp((i - 32768 - v.lo) / range, 0, 1));
+  v.half = new Uint16Array(n);
+  for (let i = 0; i < n; i++) v.half[i] = lut[v.raw[i] + 32768];
+  const hist = new Float64Array(256);
+  for (let i = 0; i < n; i++) {
+    const b = Math.floor(clamp((v.raw[i] - v.lo) / range, 0, 0.99999) * 256);
+    hist[b]++;
+  }
+  v.hist = hist;
+  // v.raw stays in memory for the slice viewer; the half-float copy is freed once it is on the GPU
+}
+
+function setVolume(v) {
+  prepareVolume(v);
+  uploadVolume(v);
+  v.half = null;
+  const keepLayers = layers.length > 0 && vol && vol.ct && v.ct;
+  vol = v;
+  const phys = [v.nx * v.sx, v.nz * v.sz, v.ny * v.sy];
+  const m = Math.max(phys[0], phys[1], phys[2]);
+  vol.ext = phys.map((p) => p / m);
+  $('dsName').textContent = v.name;
+  $('dsMeta').textContent = v.nx + ' × ' + v.ny + ' × ' + v.nz + ' · ' + v.sx.toFixed(2) + ' × ' + v.sy.toFixed(2) + ' × ' + v.sz.toFixed(2) + ' mm · ' + (v.modality || 'unknown');
+  resetView();
+  if (keepLayers) { renderLayers(); buildTF(); }
+  else { resetLayers(); renderLayers(); buildTF(); }
+  resetTeeth();
+  initSlices();
+  updateInfo();
+  requestRender();
+  autoDetectSoon();
+}
+
+/* ------------------------------------------------------------------ camera */
+const cam = { yaw: 0.45, pitch: 0.12, dist: 3.4, t: [0, 0, 0] };
+const TAN_HALF = Math.tan((38 * Math.PI) / 360);
+function resetView() {
+  const aspect = Math.max(0.2, canvas.clientWidth / Math.max(1, canvas.clientHeight));
+  cam.yaw = 0.45; cam.pitch = 0.12; cam.t = [0, 0, 0];
+  cam.dist = (1.3 / TAN_HALF) / Math.min(1, aspect * 0.9);
+  requestRender();
+}
+const vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const vcross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const vnorm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+function camBasis() {
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const dir = [cp * Math.sin(cam.yaw), sp, cp * Math.cos(cam.yaw)];
+  const pos = [cam.t[0] + dir[0] * cam.dist, cam.t[1] + dir[1] * cam.dist, cam.t[2] + dir[2] * cam.dist];
+  const fwd = vnorm(vsub(cam.t, pos));
+  const right = vnorm(vcross(fwd, [0, 1, 0]));
+  const up = vcross(right, fwd);
+  return { pos, fwd, right, up };
+}
+
+/* ------------------------------------------------------------------ render loop */
+let needRender = false, interacting = false, interactTimer = 0, gpuMs = 0, lastRes = '';
+function requestRender() {
+  if (needRender) return;
+  needRender = true;
+  requestAnimationFrame(render);
+}
+function render() {
+  needRender = false;
+  if (!device || !vol || !bindGroup) return;
+  if (!canvas.clientWidth || !canvas.clientHeight) return;   // hidden (another view is shown alone)
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const sc = interacting ? 0.6 : 1;
+  let w = Math.max(1, Math.floor(canvas.clientWidth * dpr * sc));
+  let h = Math.max(1, Math.floor(canvas.clientHeight * dpr * sc));
+  const cap = 3.2e6;
+  if (w * h > cap) { const f = Math.sqrt(cap / (w * h)); w = Math.max(1, Math.floor(w * f)); h = Math.max(1, Math.floor(h * f)); }
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+  lastRes = w + ' × ' + h;
+
+  const { pos, fwd, right, up } = camBasis();
+  const aspect = w / h;
+  const f = new Float32Array(40);
+  f.set([pos[0], pos[1], pos[2], 0], 0);
+  f.set([right[0] * aspect * TAN_HALF, right[1] * aspect * TAN_HALF, right[2] * aspect * TAN_HALF, 0], 4);
+  f.set([up[0] * TAN_HALF, up[1] * TAN_HALF, up[2] * TAN_HALF, 0], 8);
+  f.set([fwd[0], fwd[1], fwd[2], 0], 12);
+  f.set([vol.ext[0], vol.ext[1], vol.ext[2], 0], 16);
+  f.set([state.steps, state.density, state.brightness, state.light], 20);
+  f.set([1 / vol.nx, 1 / vol.ny, 1 / vol.nz, state.edge], 24);
+  f.set([(2 * TAN_HALF) / h, aspect, state.solid, state.lineW * (w / Math.max(1, canvas.clientWidth * dpr))], 28);
+  // crosshair position: sliders are -100..100 % of each half extent (world x, y, z)
+  f.set([state.cx * vol.ext[0], state.cy * vol.ext[1], state.cz * vol.ext[2], state.cross ? 1 : 0], 32);
+  f.set(toothUni, 36);
+  device.queue.writeBuffer(uniformBuf, 0, f);
+
+  const enc = device.createCommandEncoder();
+  const pass = enc.beginRenderPass({
+    colorAttachments: [{ view: context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }],
+  });
+  pass.setPipeline(pipeline);
+  pass.setBindGroup(0, bindGroup);
+  pass.draw(3);
+  pass.end();
+  drawGizmo();
+  const t0 = performance.now();
+  device.queue.submit([enc.finish()]);
+  if (!$('info').hidden) device.queue.onSubmittedWorkDone().then(() => { gpuMs = performance.now() - t0; updateInfo(); });
+}
+
+function bumpInteraction() {
+  interacting = true;
+  clearTimeout(interactTimer);
+  interactTimer = setTimeout(() => { interacting = false; requestRender(); }, 160);
+  requestRender();
+}
+
+function drawGizmo() {
+  const c = $('gizmo');
+  const g = c.getContext('2d');
+  const W = c.width, H = c.height, cx0 = W / 2, cy0 = H / 2, L = W * 0.30;
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = 'rgba(13,17,23,0.55)';
+  g.beginPath(); g.arc(cx0, cy0, W * 0.47, 0, Math.PI * 2); g.fill();
+  const { right, up, fwd } = camBasis();
+  const items = AXES.map((a) => ({
+    a, x: a.v[0] * right[0] + a.v[1] * right[1] + a.v[2] * right[2],
+    y: -(a.v[0] * up[0] + a.v[1] * up[1] + a.v[2] * up[2]),
+    d: a.v[0] * fwd[0] + a.v[1] * fwd[1] + a.v[2] * fwd[2],
+  }));
+  items.sort((p, q) => q.d - p.d); // farthest first
+  g.lineCap = 'round';
+  g.font = '600 20px "JetBrains Mono", ui-monospace, monospace';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  items.forEach((it) => {
+    g.strokeStyle = it.a.color; g.fillStyle = it.a.color;
+    g.globalAlpha = 0.28; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(cx0, cy0); g.lineTo(cx0 - it.x * L * 0.6, cy0 - it.y * L * 0.6); g.stroke();
+    g.globalAlpha = 1; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(cx0, cy0); g.lineTo(cx0 + it.x * L, cy0 + it.y * L); g.stroke();
+    g.beginPath(); g.arc(cx0 + it.x * L * 1.32, cy0 + it.y * L * 1.32, 14, 0, Math.PI * 2);
+    g.fillStyle = '#0b0f14'; g.fill(); g.lineWidth = 2; g.stroke();
+    g.fillStyle = it.a.color; g.fillText(it.a.name, cx0 + it.x * L * 1.32, cy0 + it.y * L * 1.32 + 1);
+  });
+}
+
+/* ------------------------------------------------------------------ input */
+const pointers = new Map();
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+});
+function endPointer(e) { pointers.delete(e.pointerId); }
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointermove', (e) => {
+  const prev = pointers.get(e.pointerId);
+  if (!prev) return;
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  if (pointers.size === 1) {
+    if ((e.buttons & 2) || e.shiftKey) panBy(dx, dy);
+    else { cam.yaw -= dx * 0.0065; cam.pitch = clamp(cam.pitch + dy * 0.0065, -1.5, 1.5); }
+  } else if (pointers.size === 2) {
+    const other = [...pointers.entries()].find(([id]) => id !== e.pointerId)[1];
+    const d0 = Math.hypot(prev.x - other.x, prev.y - other.y);
+    const d1 = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+    if (d0 > 0 && d1 > 0) cam.dist = clamp(cam.dist * (d0 / d1), 0.8, 9);
+    panBy(dx / 2, dy / 2);
+  }
+  prev.x = e.clientX; prev.y = e.clientY;
+  bumpInteraction();
+});
+function panBy(dx, dy) {
+  const { right, up } = camBasis();
+  const k = (cam.dist * TAN_HALF * 2) / Math.max(1, canvas.clientHeight);
+  for (let i = 0; i < 3; i++) cam.t[i] += (-right[i] * dx + up[i] * dy) * k;
+}
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  cam.dist = clamp(cam.dist * Math.exp(e.deltaY * 0.0012), 0.8, 9);
+  bumpInteraction();
+}, { passive: false });
+
+function togglePresent() { document.body.classList.toggle('present'); if (views.layout !== 'off') layoutViews(); else requestRender(); }
+function toggleHidden(id) { const el = $(id); el.hidden = !el.hidden; if (id === 'info') updateInfo(); if (typeof syncBar === 'function') syncBar(); requestRender(); }
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tg = e.target;
+  if (tg && tg.tagName === 'INPUT' && (tg.type === 'text' || tg.type === 'number')) return;
+  const k = e.key.toLowerCase();
+  if (tg && tg.tagName === 'INPUT' && (k === 'arrowup' || k === 'arrowdown')) return; // let focused sliders handle their own arrows
+  if (k === 'arrowup' || k === 'arrowdown') { e.preventDefault(); stepSlice(k === 'arrowup' ? 1 : -1); }
+  else if (k === 'q') cycleLayout();
+  else if (k >= '1' && k <= '4') chooseMain(parseInt(k, 10) - 1);
+  else if (k === 'r') resetView();
+  else if (k === 'h') togglePresent();
+  else if (k === 'g') toggleHidden('tune');
+  else if (k === 't') toggleHidden('tissues');
+  else if (k === 'i') toggleHidden('info');
+  else if (k === 'c') { state.cross = !state.cross; $('crossOn').checked = state.cross; updateSlice(); requestRender(); }
+});
+$('exitPresent').addEventListener('click', togglePresent);
+
+/* ------------------------------------------------------------------ UI build */
+TUNING.forEach((t) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  wrap.innerHTML = '<label for="t_' + t.key + '">' + t.label + '</label><output id="o_' + t.key + '"></output>' +
+    '<input id="t_' + t.key + '" type="range" min="' + t.min + '" max="' + t.max + '" step="' + t.step + '" value="' + state[t.key] + '">';
+  $('tuneBody').appendChild(wrap);
+  const inp = wrap.querySelector('input'), out = wrap.querySelector('output');
+  const sync = () => { out.textContent = t.fmt(state[t.key]); };
+  sync();
+  inp.addEventListener('input', () => {
+    state[t.key] = parseFloat(inp.value);
+    sync();
+    if (t.tf) buildTF();
+    requestRender();
+  });
+});
+
+/* ------------------------------------------------------------------ crosshair UI + axis gizmo */
+const AXES = [
+  { key: 'cx', name: 'X', desc: 'left – right', color: '#ff4747', v: [1, 0, 0] },
+  { key: 'cy', name: 'Y', desc: 'head – foot', color: '#4cf261', v: [0, 1, 0] },
+  { key: 'cz', name: 'Z', desc: 'front – back', color: '#5794ff', v: [0, 0, 1] },
+];
+AXES.forEach((a) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'ctl';
+  wrap.innerHTML = '<label for="c_' + a.key + '"><span class="ax" style="background:' + a.color + '"></span>' + a.name +
+    ' <span class="muted">' + a.desc + '</span></label><output id="co_' + a.key + '">0%</output>' +
+    '<input id="c_' + a.key + '" type="range" min="-100" max="100" step="0.1" value="0" style="accent-color:' + a.color + '">';
+  $('crossBody').appendChild(wrap);
+  const inp = wrap.querySelector('input');
+  inp.addEventListener('input', () => setCross(a.key, parseFloat(inp.value) / 100));
+});
+// single entry point for moving the crosshair: keeps sliders, slice viewer and 3D lines in sync
+function setCross(key, v) {
+  v = clamp(v, -1, 1);
+  state[key] = v;
+  $('c_' + key).value = String(v * 100);
+  $('co_' + key).textContent = Math.round(v * 100) + '%';
+  updateSlice();
+  requestRender();
+}
+function centerCross() { AXES.forEach((a) => setCross(a.key, 0)); }
+$('crossOn').addEventListener('change', () => { state.cross = $('crossOn').checked; updateSlice(); requestRender(); });
+$('crossCenter').addEventListener('click', centerCross);
+
+/* ------------------------------------------------------------------ automatic tooth detection (algorithm) */
+/* Automatic tooth detection. Pure functions (no DOM) so the same code runs in the page and in the Node test.
+ *
+ * Idea: teeth are the densest compact objects in a dental scan (enamel). Instead of one fixed density range
+ * (which overlaps cortical bone), the code
+ *   1. works out the tissue levels from the histogram itself (Otsu, so it adapts to CT, CBCT and any scale),
+ *   2. sweeps a density threshold upward and keeps the level at which the most "tooth-sized, compact" blobs
+ *      exist (below that level the teeth merge with the jaw and stop being compact blobs),
+ *   3. grows each blob into dentin and root with a threshold derived from its neighbourhood, limited in reach,
+ *   4. cuts thin bridges to cortical bone (morphological opening), fills the pulp, drops tiny pieces,
+ *   5. maps the result back to full resolution.
+ */
+async function detectTeeth(v, opt, progress) {
+  const nx = v.nx, ny = v.ny, nz = v.nz, raw = v.raw, sx = v.sx, sy = v.sy, sz = v.sz;
+  const o = Object.assign({ sens: 0.5, reach: 18, sep: 1.0, minVol: 100 }, opt || {});
+  const pause = () => new Promise((r) => setTimeout(r, 0));
+  const say = async (m) => { if (progress) progress(m); await pause(); };
+  const info = {};
+
+  /* ---- 1. working grid (block means, about 0.8 mm voxels) ---- */
+  await say('Preparing…');
+  const TARGET = 0.8;
+  const fx = Math.max(1, Math.round(TARGET / sx)), fy = Math.max(1, Math.round(TARGET / sy)), fz = Math.max(1, Math.round(TARGET / sz));
+  const wx = Math.ceil(nx / fx), wy = Math.ceil(ny / fy), wz = Math.ceil(nz / fz);
+  const wxy = wx * wy, wn = wxy * wz;
+  const wsx = sx * fx, wsy = sy * fy, wsz = sz * fz;
+  const wvol = wsx * wsy * wsz;
+  const meanW = Math.cbrt(wvol);
+  const W = new Int16Array(wn);
+  const xi = new Int32Array(nx);
+  for (let i = 0; i < nx; i++) xi[i] = (i / fx) | 0;
+  if (fx === 1 && fy === 1 && fz === 1) W.set(raw);
+  else {
+    const acc = new Int32Array(wn), cnt = new Uint16Array(wn);
+    for (let k = 0; k < nz; k++) {
+      const wk = ((k / fz) | 0) * wxy;
+      for (let j = 0; j < ny; j++) {
+        const wj = wk + ((j / fy) | 0) * wx;
+        let p = (k * ny + j) * nx;
+        for (let i = 0; i < nx; i++) { const q = wj + xi[i]; acc[q] += raw[p++]; cnt[q]++; }
+      }
+    }
+    for (let q = 0; q < wn; q++) W[q] = Math.round(acc[q] / cnt[q]);
+  }
+  info.work = [wx, wy, wz]; info.factor = [fx, fy, fz];
+
+  /* ---- 2. tissue levels from the histogram ---- */
+  let mn = 32767, mx = -32768;
+  for (let q = 0; q < wn; q++) { const x = W[q]; if (x < mn) mn = x; if (x > mx) mx = x; }
+  const NB = 2048, span = Math.max(1, mx - mn);
+  const hist = new Float64Array(NB);
+  for (let q = 0; q < wn; q++) hist[Math.min(NB - 1, ((W[q] - mn) * NB / span) | 0)]++;
+  const binOf = (x) => Math.max(0, Math.min(NB - 1, ((x - mn) * NB / span) | 0));
+  const valOf = (b) => mn + (b * span) / NB;
+  const otsu = (h, a, b) => {
+    let tot = 0, sum = 0;
+    for (let i = a; i < b; i++) { tot += h[i]; sum += h[i] * i; }
+    if (tot <= 0) return a;
+    let wB = 0, sB = 0, best = -1, bi = a;
+    for (let i = a; i < b - 1; i++) {
+      wB += h[i];
+      if (wB === 0) continue;
+      const wF = tot - wB;
+      if (wF === 0) break;
+      sB += h[i] * i;
+      const mB = sB / wB, mF = (sum - sB) / wF;
+      const bv = wB * wF * (mB - mF) * (mB - mF);
+      if (bv > best) { best = bv; bi = i; }
+    }
+    return bi + 1;
+  };
+  const b0 = otsu(hist, 0, NB);          // background | everything else
+  const b1 = otsu(hist, b0, NB);         // soft tissue | hard tissue
+  const hard = valOf(b1);
+  let nc = 0;
+  for (let b = b1; b < NB; b++) nc += hist[b];
+  if (nc < 1000) return { mask: null, regions: 0, info };
+  let acc = 0, bTop = NB - 1;
+  for (let b = b1; b < NB; b++) { acc += hist[b]; if (acc >= nc * 0.999) { bTop = b; break; } }
+  const hmax = valOf(bTop);
+  info.hard = Math.round(hard); info.hmax = Math.round(hmax);
+  if (hmax - hard < 50) return { mask: null, regions: 0, info };
+  const cand = new Int32Array(nc);
+  { let c = 0; for (let q = 0; q < wn; q++) if (W[q] >= hard) cand[c++] = q; }
+
+  /* ---- 3. level sweep: where are the most tooth-like compact blobs? ---- */
+  const lab = new Int32Array(wn);
+  const Qc = new Int32Array(nc);
+  const VMIN = 12, VMAX = 5000, EMAX = 34, EMIN = 2.4, FILL = 0.10;
+  // returns total volume of tooth-like blobs at level L; with `seedMask` it also records their voxels
+  function sweep(L, seedMask) {
+    for (let i = 0; i < nc; i++) lab[cand[i]] = 0;
+    let score = 0, blobs = 0;
+    for (let ci = 0; ci < nc; ci++) {
+      const s = cand[ci];
+      if (lab[s] || W[s] < L) continue;
+      let qh = 0, qt = 0;
+      Qc[qt++] = s; lab[s] = 1;
+      let x0 = wx, x1 = -1, y0 = wy, y1 = -1, z0 = wz, z1 = -1;
+      while (qh < qt) {
+        const q = Qc[qh++];
+        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (z < z0) z0 = z; if (z > z1) z1 = z;
+        let n;
+        if (x > 0) { n = q - 1; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+        if (x < wx - 1) { n = q + 1; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+        if (y > 0) { n = q - wx; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+        if (y < wy - 1) { n = q + wx; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+        if (z > 0) { n = q - wxy; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+        if (z < wz - 1) { n = q + wxy; if (!lab[n] && W[n] >= L) { lab[n] = 1; Qc[qt++] = n; } }
+      }
+      const V = qt * wvol;
+      if (V < VMIN || V > VMAX) continue;
+      const ex = (x1 - x0 + 1) * wsx, ey = (y1 - y0 + 1) * wsy, ez = (z1 - z0 + 1) * wsz;
+      if (Math.max(ex, ey, ez) > EMAX || Math.min(ex, ey, ez) < EMIN) continue;
+      if (qt / ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1)) < FILL) continue;
+      score += V; blobs++;
+      if (seedMask) for (let i = 0; i < qt; i++) seedMask[Qc[i]] = 1;
+    }
+    return { score, blobs };
+  }
+  await say('Looking for teeth…');
+  const STEPS = 22;
+  const S = new Uint8Array(wn);     // seeds: every tooth-like blob at every level (each tooth ends up with its largest one)
+  let best = { score: 0, blobs: 0, L: 0 };
+  for (let i = 0; i < STEPS; i++) {
+    const L = hard + (hmax - hard) * (0.12 + (0.85 * i) / (STEPS - 1));
+    const r = sweep(L, S);
+    if (r.score > best.score * 1.0001) best = { score: r.score, blobs: r.blobs, L };
+    if (i % 4 === 3) await pause();
+  }
+  info.level = Math.round(best.L); info.seedBlobs = best.blobs;
+  if (best.blobs === 0) return { mask: null, regions: 0, info };
+  const S1 = new Uint8Array(wn);    // enamel-level blobs only
+  sweep(best.L, S1);
+
+  /* ---- 4. growth into dentin and root ---- */
+  await say('Growing teeth…');
+  const M = new Uint8Array(wn);     // grown tooth mask
+  const Q = new Int32Array(wn);
+  let qt = 0, seedN = 0;
+  for (let q = 0; q < wn; q++) if (S[q]) { M[q] = 1; Q[qt++] = q; seedN++; }
+  info.seedVox = seedN;
+  const rW = Math.max(2, Math.ceil(o.reach / meanW));
+  // Dentin level: the material just inside / around the enamel caps. Look at hard voxels within 3 steps of the
+  // enamel blobs that are below the enamel level; their lower quartile is dentin (outer side is air or soft tissue).
+  let dentin = best.L;
+  {
+    const mark = new Uint8Array(wn);
+    const Q2 = new Int32Array(Math.min(wn, 4e6));
+    let t2 = 0, h2 = 0;
+    for (let q = 0; q < wn && t2 < Q2.length; q++) if (S1[q]) { mark[q] = 1; Q2[t2++] = q; }
+    const vals = [];
+    for (let d = 0; d < 3 && h2 < t2; d++) {
+      const end = t2;
+      while (h2 < end) {
+        const q = Q2[h2++];
+        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+        const tryN = (n) => { if (!mark[n] && t2 < Q2.length) { mark[n] = 1; Q2[t2++] = n; if (W[n] >= hard && W[n] < best.L) vals.push(W[n]); } };
+        if (x > 0) tryN(q - 1); if (x < wx - 1) tryN(q + 1);
+        if (y > 0) tryN(q - wx); if (y < wy - 1) tryN(q + wx);
+        if (z > 0) tryN(q - wxy); if (z < wz - 1) tryN(q + wxy);
+      }
+    }
+    if (vals.length >= 50) { vals.sort((p, q2) => p - q2); dentin = vals[(vals.length * 0.25) | 0]; }
+  }
+  // sensitivity: 0 = strict, 1 = generous. The level sits between the soft/hard boundary and dentin.
+  const sens = Math.max(0, Math.min(1, o.sens));
+  const frac = 0.75 - 0.5 * sens;
+  const tlow = hard + frac * (dentin - hard);
+  info.dentin = Math.round(dentin); info.tlow = Math.round(tlow);
+  {
+    let head = 0, depth = 0;
+    while (head < qt && depth < rW) {
+      const end = qt;
+      while (head < end) {
+        const q = Q[head++];
+        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+        let n;
+        if (x > 0) { n = q - 1; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+        if (x < wx - 1) { n = q + 1; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+        if (y > 0) { n = q - wx; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+        if (y < wy - 1) { n = q + wx; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+        if (z > 0) { n = q - wxy; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+        if (z < wz - 1) { n = q + wxy; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
+      }
+      depth++;
+    }
+  }
+  await pause();
+
+  /* ---- 5. cut thin bridges to bone (opening), keep what is connected to a seed, fill the pulp ---- */
+  await say('Cleaning up…');
+  const nOpen = Math.round(o.sep / meanW);
+  let K = M;
+  const erode = (A) => {
+    const B = new Uint8Array(wn);
+    for (let z = 1; z < wz - 1; z++) for (let y = 1; y < wy - 1; y++) {
+      let q = z * wxy + y * wx + 1;
+      for (let x = 1; x < wx - 1; x++, q++) {
+        if (A[q] && A[q - 1] && A[q + 1] && A[q - wx] && A[q + wx] && A[q - wxy] && A[q + wxy]) B[q] = 1;
+      }
+    }
+    return B;
+  };
+  const dilate = (A, limit) => {
+    const B = new Uint8Array(wn);
+    for (let z = 0; z < wz; z++) for (let y = 0; y < wy; y++) {
+      let q = z * wxy + y * wx;
+      for (let x = 0; x < wx; x++, q++) {
+        if (A[q]) { B[q] = 1; continue; }
+        if (limit && !limit[q]) continue;
+        if ((x > 0 && A[q - 1]) || (x < wx - 1 && A[q + 1]) || (y > 0 && A[q - wx]) || (y < wy - 1 && A[q + wx]) || (z > 0 && A[q - wxy]) || (z < wz - 1 && A[q + wxy])) B[q] = 1;
+      }
+    }
+    return B;
+  };
+  if (nOpen > 0) {
+    let E = M;
+    for (let i = 0; i < nOpen; i++) E = erode(E);
+    let D = E;
+    for (let i = 0; i < nOpen; i++) D = dilate(D, M);
+    for (let q = 0; q < wn; q++) if (S[q]) D[q] = 1;     // never lose the enamel itself
+    K = D;
+  }
+  // keep only what is still connected to a seed
+  {
+    const R = new Uint8Array(wn);
+    let t = 0, h = 0;
+    for (let q = 0; q < wn; q++) if (S[q]) { R[q] = 1; Q[t++] = q; }
+    while (h < t) {
+      const q = Q[h++];
+      const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+      let n;
+      if (x > 0) { n = q - 1; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (x < wx - 1) { n = q + 1; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (y > 0) { n = q - wx; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (y < wy - 1) { n = q + wx; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (z > 0) { n = q - wxy; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (z < wz - 1) { n = q + wxy; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+    }
+    K = R;
+  }
+  // fill cavities: flood the outside from the grid border, anything not reached and not tooth is enclosed
+  {
+    const out = new Uint8Array(wn);
+    let t = 0, h = 0;
+    const push = (q) => { if (!K[q] && !out[q]) { out[q] = 1; Q[t++] = q; } };
+    for (let z = 0; z < wz; z++) for (let y = 0; y < wy; y++) { push(z * wxy + y * wx); push(z * wxy + y * wx + wx - 1); }
+    for (let z = 0; z < wz; z++) for (let x = 0; x < wx; x++) { push(z * wxy + x); push(z * wxy + (wy - 1) * wx + x); }
+    for (let y = 0; y < wy; y++) for (let x = 0; x < wx; x++) { push(y * wx + x); push((wz - 1) * wxy + y * wx + x); }
+    while (h < t) {
+      const q = Q[h++];
+      const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+      if (x > 0) push(q - 1); if (x < wx - 1) push(q + 1);
+      if (y > 0) push(q - wx); if (y < wy - 1) push(q + wx);
+      if (z > 0) push(q - wxy); if (z < wz - 1) push(q + wxy);
+    }
+    for (let q = 0; q < wn; q++) if (!K[q] && !out[q]) K[q] = 1;
+  }
+  // drop tiny pieces and count the separate tooth regions
+  let regions = 0, totalVox = 0;
+  {
+    const seen = new Uint8Array(wn);
+    for (let s = 0; s < wn; s++) {
+      if (!K[s] || seen[s]) continue;
+      let h = 0, t = 0;
+      Q[t++] = s; seen[s] = 1;
+      while (h < t) {
+        const q = Q[h++];
+        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+        let n;
+        if (x > 0) { n = q - 1; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+        if (x < wx - 1) { n = q + 1; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+        if (y > 0) { n = q - wx; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+        if (y < wy - 1) { n = q + wx; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+        if (z > 0) { n = q - wxy; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+        if (z < wz - 1) { n = q + wxy; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+      }
+      if (t * wvol < o.minVol) { for (let i = 0; i < t; i++) K[Q[i]] = 0; }
+      else { regions++; totalVox += t; }
+    }
+  }
+  info.regions = regions;
+  if (!regions) return { mask: null, regions: 0, info };
+  await pause();
+
+  /* ---- 6. back to full resolution ---- */
+  await say('Finishing…');
+  const full = new Uint8Array(nx * ny * nz);
+  if (fx === 1 && fy === 1 && fz === 1) full.set(K);
+  else {
+    const Kin = erode(K), Kd = dilate(K, null);
+    for (let k = 0; k < nz; k++) {
+      const wk = ((k / fz) | 0) * wxy;
+      for (let j = 0; j < ny; j++) {
+        const wj = wk + ((j / fy) | 0) * wx;
+        let p = (k * ny + j) * nx;
+        for (let i = 0; i < nx; i++, p++) {
+          const q = wj + xi[i];
+          if (Kin[q]) full[p] = 1;
+          else if (Kd[q] && raw[p] >= tlow) full[p] = 1;
+        }
+      }
+    }
+  }
+  let count = 0;
+  for (let p = 0; p < full.length; p++) count += full[p];
+  return { mask: full, regions, volumeMm3: count * sx * sy * sz, info };
+}
+
+/* ------------------------------------------------------------------ slice viewer + multi-view layouts */
+// Layouts: 'off' (3D full window, one slice in the side panel), 'grid' (2 x 2), 'focus' (1 big + 3 small), 'single' (1 big only).
+// Double-click any view to promote it. Volume indices: i = column (world x), j = row (world z, flipped), k = slice (world y).
+const sl = { axis: 0, wl: 0, ww: 1, cache: [null, null, null], base: '' };
+const SLICE_AXES = [
+  { name: 'Axial', key: 'cy', n: () => vol.nz, idx: () => clamp(Math.floor((state.cy * 0.5 + 0.5) * vol.nz), 0, vol.nz - 1), coord: (i) => ((i + 0.5) / vol.nz) * 2 - 1 },
+  { name: 'Coronal', key: 'cz', n: () => vol.ny, idx: () => clamp(Math.floor((0.5 - state.cz * 0.5) * vol.ny), 0, vol.ny - 1), coord: (i) => 1 - ((i + 0.5) / vol.ny) * 2 },
+  { name: 'Sagittal', key: 'cx', n: () => vol.nx, idx: () => clamp(Math.floor((state.cx * 0.5 + 0.5) * vol.nx), 0, vol.nx - 1), coord: (i) => ((i + 0.5) / vol.nx) * 2 - 1 },
+];
+const SLICE_COLOR = [AXES[1].color, AXES[2].color, AXES[0].color]; // colour of the axis each stack runs along
+const VIEW_NAMES = ['Axial', 'Coronal', 'Sagittal', '3D'];
+const LAYOUTS = ['off', 'grid', 'focus', 'single'];
+const views = { layout: 'off', main: 3, cells: [], cvs: [] };
+
+(function buildViews() {
+  const host = $('quad');
+  VIEW_NAMES.forEach((name, i) => {
+    const cell = el('div', i === 3 ? 'qcell q3d' : 'qcell');
+    const lab = el('span', 'qlabel', { textContent: name });
+    if (i < 3) {
+      lab.style.color = SLICE_COLOR[i];
+      const cvs = el('canvas');
+      cell.append(cvs, lab);
+      views.cvs[i] = cvs;
+      attachSliceEvents(cvs, () => i);
+      cvs.addEventListener('dblclick', () => viewDbl(i));
+    } else cell.append(lab);
+    cell._lab = lab;
+    host.append(cell);
+    views.cells.push(cell);
+  });
+})();
+
+function setLayout(mode, main) {
+  if (main !== undefined) views.main = main;
+  views.layout = mode;
+  document.body.classList.toggle('multi', mode !== 'off');
+  LAYOUTS.slice(1).forEach((m) => document.body.classList.toggle('lay-' + m, mode === m));
+  views.cells.forEach((c, i) => c.classList.toggle('main', mode === 'focus' || mode === 'single' ? i === views.main : false));
+  if (mode === 'single' || mode === 'focus') { if (views.main < 3) sl.axis = views.main; }
+  syncBar();
+  layoutViews();
+}
+function cycleLayout() { setLayout(LAYOUTS[(LAYOUTS.indexOf(views.layout) + 1) % LAYOUTS.length]); }
+// double-click: grid -> that view becomes the big one (1 + 3); on the big one -> it alone; alone -> back to 1 + 3
+function viewDbl(v) {
+  const L = views.layout;
+  if (L === 'off') return;
+  if (L === 'grid') setLayout('focus', v);
+  else if (L === 'focus') setLayout(v === views.main ? 'single' : 'focus', v);
+  else setLayout('focus', views.main);
+}
+function chooseMain(v) {
+  if (views.layout === 'off') { if (v < 3) setLayout('single', v); return; }
+  setLayout(views.layout === 'grid' ? 'focus' : views.layout, v);
+}
+// put the WebGPU canvas (and the axis gizmo) exactly over the 3D cell, then redraw
+function layoutViews() {
+  const gpu = canvas, gz = $('gizmo');
+  if (views.layout === 'off') {
+    gpu.style.cssText = ''; gz.style.cssText = '';
+  } else {
+    const cell = views.cells[3];
+    if (cell.offsetParent === null) { gpu.style.display = 'none'; gz.style.display = 'none'; }
+    else {
+      const a = $('app').getBoundingClientRect(), r = cell.getBoundingClientRect();
+      Object.assign(gpu.style, { display: 'block', inset: 'auto', left: r.left - a.left + 'px', top: r.top - a.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+      const gs = clamp(Math.min(r.width, r.height) * 0.28, 44, 84);
+      Object.assign(gz.style, { display: 'block', left: r.left - a.left + 10 + 'px', top: r.bottom - a.top - gs - 10 + 'px', bottom: 'auto', width: gs + 'px', height: gs + 'px' });
+    }
+  }
+  updateSlice();
+  requestRender();
+}
+new ResizeObserver(() => { if (views.layout !== 'off') layoutViews(); }).observe($('quad'));
+
+function resetWindow() {
+  const lo = Math.round(vol.lo), hi = Math.round(vol.hi);
+  if (vol.ct) { sl.wl = 300; sl.ww = 1600; } else { sl.wl = (lo + hi) / 2; sl.ww = Math.max(1, hi - lo); }
+  $('wlSlider').value = String(sl.wl); $('wwSlider').value = String(sl.ww);
+}
+function initSlices() {
+  centerCross();
+  const lo = Math.round(vol.lo), hi = Math.round(vol.hi);
+  $('wlSlider').min = String(lo); $('wlSlider').max = String(hi);
+  $('wwSlider').min = '1'; $('wwSlider').max = String(Math.max(2, (hi - lo) * 1.5));
+  resetWindow();
+  updateSlice();
+}
+
+// Draw one slice into a canvas, fitted inside availW x availH keeping the physical aspect ratio.
+function renderSliceTo(cvs, ax, availW, availH) {
+  const A = SLICE_AXES[ax];
+  const idx = A.idx();
+  const { nx, ny, nz, raw } = vol;
+  let w, h, pw, ph;           // image size in voxels, and voxel spacing along each image axis (mm)
+  if (ax === 0) { w = nx; h = ny; pw = vol.sx; ph = vol.sy; }
+  else if (ax === 1) { w = nx; h = nz; pw = vol.sx; ph = vol.sz; }
+  else { w = ny; h = nz; pw = vol.sy; ph = vol.sz; }
+  let c = sl.cache[ax];
+  if (!c || c.w !== w || c.h !== h) {
+    const tmp = document.createElement('canvas'); tmp.width = w; tmp.height = h;
+    c = sl.cache[ax] = { w, h, tmp, img: tmp.getContext('2d').createImageData(w, h) };
+  }
+  const px = new Uint32Array(c.img.data.buffer);
+  const lo = sl.wl - sl.ww / 2, inv = 255 / sl.ww;
+  const TM = teeth.mask && toothUni[3] > 0 ? teeth.mask : null;     // tint detected teeth in the slices too
+  const tr = toothUni[0] * 255, tg = toothUni[1] * 255, tb = toothUni[2] * 255;
+  const put = (o, v, m) => {
+    let g = (v - lo) * inv; g = g < 0 ? 0 : g > 255 ? 255 : g;
+    if (m) px[o] = 0xff000000 | (((g * 0.45 + tb * 0.55) | 0) << 16) | (((g * 0.45 + tg * 0.55) | 0) << 8) | ((g * 0.45 + tr * 0.55) | 0);
+    else { g |= 0; px[o] = 0xff000000 | (g << 16) | (g << 8) | g; }
+  };
+  if (ax === 0) {
+    const base = idx * nx * ny;
+    for (let o = 0; o < w * h; o++) put(o, raw[base + o], TM && TM[base + o]);
+  } else if (ax === 1) {
+    for (let r = 0; r < h; r++) {
+      const k = nz - 1 - r, base = (k * ny + idx) * nx;
+      for (let cc = 0; cc < w; cc++) put(r * w + cc, raw[base + cc], TM && TM[base + cc]);
+    }
+  } else {
+    for (let r = 0; r < h; r++) {
+      const k = nz - 1 - r;
+      for (let cc = 0; cc < w; cc++) { const p = (k * ny + cc) * nx + idx; put(r * w + cc, raw[p], TM && TM[p]); }
+    }
+  }
+  c.tmp.getContext('2d').putImageData(c.img, 0, 0);
+
+  const aspect = (w * pw) / (h * ph);
+  let cw = availW, ch = cw / aspect;
+  if (ch > availH) { ch = availH; cw = ch * aspect; }
+  cw = Math.max(40, Math.round(cw)); ch = Math.max(40, Math.round(ch));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cvs.style.width = cw + 'px'; cvs.style.height = ch + 'px';
+  cvs.width = Math.round(cw * dpr); cvs.height = Math.round(ch * dpr);
+  const g = cvs.getContext('2d');
+  g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.drawImage(c.tmp, 0, 0, cvs.width, cvs.height);
+
+  // crosshair lines in axis colours
+  if (state.cross) {
+    const i = SLICE_AXES[2].idx(), j = SLICE_AXES[1].idx(), k = SLICE_AXES[0].idx();
+    let fx, fy, cxCol, cyCol;
+    if (ax === 0) { fx = (i + 0.5) / nx; fy = (j + 0.5) / ny; cxCol = AXES[0].color; cyCol = AXES[2].color; }
+    else if (ax === 1) { fx = (i + 0.5) / nx; fy = 1 - (k + 0.5) / nz; cxCol = AXES[0].color; cyCol = AXES[1].color; }
+    else { fx = (j + 0.5) / ny; fy = 1 - (k + 0.5) / nz; cxCol = AXES[2].color; cyCol = AXES[1].color; }
+    g.lineWidth = Math.max(1, dpr); g.globalAlpha = 0.9;
+    g.strokeStyle = cxCol; g.beginPath(); g.moveTo(fx * cvs.width, 0); g.lineTo(fx * cvs.width, cvs.height); g.stroke();
+    g.strokeStyle = cyCol; g.beginPath(); g.moveTo(0, fy * cvs.height); g.lineTo(cvs.width, fy * cvs.height); g.stroke();
+    g.globalAlpha = 1;
+  }
+  return idx;
+}
+
+function updateSlice() {
+  if (!vol || !vol.raw) return;
+  if (views.layout !== 'off') {
+    for (let ax = 0; ax < 3; ax++) {
+      const cell = views.cells[ax];
+      if (cell.offsetParent === null) continue;      // hidden in the 1-big layout
+      const idx = renderSliceTo(views.cvs[ax], ax, cell.clientWidth, cell.clientHeight);
+      cell._lab.textContent = SLICE_AXES[ax].name + '  ' + (idx + 1) + ' / ' + SLICE_AXES[ax].n();
+      cell.classList.toggle('active', ax === sl.axis);
+    }
+  }
+  const A = SLICE_AXES[sl.axis];
+  sl.base = A.name + ' · slice ' + (A.idx() + 1) + ' / ' + A.n();
+  $('slInfo').textContent = sl.base;
+  $('wlOut').textContent = Math.round(sl.wl);
+  $('wwOut').textContent = Math.round(sl.ww);
+  syncBar();
+}
+function stepAxis(ax, d) {
+  if (!vol) return;
+  const A = SLICE_AXES[ax];
+  setCross(A.key, A.coord(clamp(A.idx() + d, 0, A.n() - 1)));
+}
+function stepSlice(d) { stepAxis(sl.axis, d); }
+function setActiveAxis(ax) { if (sl.axis !== ax) { sl.axis = ax; updateSlice(); } }
+
+$('wlSlider').addEventListener('input', () => { sl.wl = parseFloat($('wlSlider').value); updateSlice(); });
+$('wwSlider').addEventListener('input', () => { sl.ww = Math.max(1, parseFloat($('wwSlider').value)); updateSlice(); });
+
+// voxel value under the pointer in a slice pane
+function valueAtPointer(e, cvs, ax) {
+  if (!vol || !vol.raw) return null;
+  const r = cvs.getBoundingClientRect();
+  const fx = clamp((e.clientX - r.left) / r.width, 0, 0.99999), fy = clamp((e.clientY - r.top) / r.height, 0, 0.99999);
+  const { nx, ny, nz, raw } = vol;
+  let i, j, k;
+  if (ax === 0) { i = Math.floor(fx * nx); j = Math.floor(fy * ny); k = SLICE_AXES[0].idx(); }
+  else if (ax === 1) { i = Math.floor(fx * nx); k = nz - 1 - Math.floor(fy * nz); j = SLICE_AXES[1].idx(); }
+  else { j = Math.floor(fx * ny); k = nz - 1 - Math.floor(fy * nz); i = SLICE_AXES[2].idx(); }
+  return raw[(k * ny + j) * nx + i];
+}
+// click / drag in a pane moves the crosshair within that plane
+function pickSlice(e, cvs, ax) {
+  if (!vol) return;
+  const r = cvs.getBoundingClientRect();
+  const fx = clamp((e.clientX - r.left) / r.width, 0, 1), fy = clamp((e.clientY - r.top) / r.height, 0, 1);
+  if (ax === 0) { setCross('cx', fx * 2 - 1); setCross('cz', 1 - fy * 2); }
+  else if (ax === 1) { setCross('cx', fx * 2 - 1); setCross('cy', 1 - fy * 2); }
+  else { setCross('cz', 1 - fx * 2); setCross('cy', 1 - fy * 2); }
+}
+function attachSliceEvents(cvs, getAx) {
+  cvs.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    stepAxis(getAx(), (e.deltaY > 0 ? 1 : -1) * (e.shiftKey ? 10 : 1));
+  }, { passive: false });
+  cvs.addEventListener('pointerdown', (e) => {
+    const ax = getAx();
+    setActiveAxis(ax);
+    cvs.setPointerCapture(e.pointerId);
+    pickSlice(e, cvs, ax);
+  });
+  cvs.addEventListener('pointermove', (e) => {
+    const ax = getAx();
+    if (e.buttons & 1) { pickSlice(e, cvs, ax); return; }
+    const v = valueAtPointer(e, cvs, ax);
+    if (v !== null) $('slInfo').textContent = SLICE_AXES[ax].name + ' · value ' + v;
+  });
+  cvs.addEventListener('pointerleave', () => { $('slInfo').textContent = sl.base || '–'; });
+}
+canvas.addEventListener('dblclick', () => viewDbl(3));
+
+/* ------------------------------------------------------------------ teeth: automatic detection */
+const teeth = { mask: null, ran: false, busy: false, again: false, timer: 0, token: 0 };
+function teethOptions() {
+  return { sens: parseFloat($('tSens').value) / 100, sep: parseFloat($('tSep').value), reach: parseFloat($('tReach').value) };
+}
+function setTeethStatus(main, detail) { $('tStatus').textContent = main + (detail ? '\n' + detail : ''); }
+function resetTeeth() {
+  teeth.token++;
+  teeth.mask = null; teeth.ran = false;
+  clearTeethMask();
+  setTeethStatus('No teeth detected yet');
+}
+async function runDetect() {
+  if (!vol || !vol.raw) return;
+  if (teeth.busy) { teeth.again = true; return; }
+  teeth.busy = true; teeth.ran = true;
+  const my = ++teeth.token;
+  showOverlay('Detecting teeth…');
+  await tick();
+  try {
+    const r = await detectTeeth(vol, teethOptions(), (m) => { $('overlayMsg').textContent = 'Detecting teeth… ' + (m || ''); });
+    if (my !== teeth.token) return;                       // another scan was loaded meanwhile
+    if (!r.mask) {
+      teeth.mask = null; clearTeethMask();
+      setTeethStatus('No teeth found in this scan.', 'This needs a dental scan where enamel is clearly denser than bone. Try a higher Sensitivity.');
+    } else {
+      teeth.mask = r.mask; uploadMask(r.mask);
+      const i = r.info;
+      setTeethStatus((r.volumeMm3 / 1000).toFixed(1) + ' cm³ of teeth found (' + r.regions + (r.regions === 1 ? ' connected group)' : ' connected groups)'),
+        'tissue levels: hard ' + i.hard + ' · tooth ' + i.dentin + ' · grow ≥ ' + i.tlow);
+      const T = layers.find((l) => l.id === 'tooth');
+      if (T && !T.visible) { T.visible = true; renderLayers(); layersChanged(); }
+    }
+    updateSlice();
+  } catch (err) {
+    setTeethStatus('Could not detect teeth: ' + (err && err.message ? err.message : err));
+  } finally {
+    hideOverlay();
+    teeth.busy = false;
+    if (teeth.again) { teeth.again = false; runDetect(); }
+  }
+}
+// scans bigger than a head are not searched automatically (it would only find false positives); the button still works
+function autoDetectSoon() {
+  if (!$('tAuto').checked || !vol) return;
+  const phys = Math.max(vol.nx * vol.sx, vol.ny * vol.sy, vol.nz * vol.sz);
+  if (phys > 260) { setTeethStatus('Large scan (' + Math.round(phys) + ' mm), not searched automatically.', 'Press Detect teeth to search it.'); return; }
+  const v = vol;
+  setTimeout(() => { if (vol === v) runDetect(); }, 80);
+}
+$('detectTeeth').addEventListener('click', runDetect);
+$('clearTeeth').addEventListener('click', resetTeeth);
+[['tSens', (v) => v + '%'], ['tSep', (v) => v.toFixed(1) + ' mm'], ['tReach', (v) => v + ' mm']].forEach(([id, fmt]) => {
+  const inp = $(id), out = $(id + 'O');
+  out.textContent = fmt(parseFloat(inp.value));
+  inp.addEventListener('input', () => { out.textContent = fmt(parseFloat(inp.value)); });
+  inp.addEventListener('change', () => { if (teeth.ran) { clearTimeout(teeth.timer); teeth.timer = setTimeout(runDetect, 120); } });
+});
+
+/* ------------------------------------------------------------------ header toolbar */
+const tipEl = $('tip');
+function showTip(t) {
+  if (!t.dataset.tip) return;
+  tipEl.textContent = t.dataset.tip;
+  if (t.dataset.key) { const k = document.createElement('kbd'); k.textContent = t.dataset.key; tipEl.append(k); }
+  tipEl.hidden = false;
+  const r = t.getBoundingClientRect(), w = tipEl.offsetWidth;
+  tipEl.style.left = clamp(r.left + r.width / 2 - w / 2, 6, window.innerWidth - w - 6) + 'px';
+  tipEl.style.top = r.bottom + 8 + 'px';
+}
+const hideTip = () => { tipEl.hidden = true; };
+$('bar').addEventListener('mouseover', (e) => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); else hideTip(); });
+$('bar').addEventListener('mouseleave', hideTip);
+$('bar').addEventListener('focusin', (e) => { const t = e.target.closest('[data-tip]'); if (t && e.target.matches(':focus-visible')) showTip(t); });
+$('bar').addEventListener('focusout', hideTip);
+$('bar').addEventListener('click', hideTip);
+
+// state shown on the buttons
+function syncBar() {
+  const all = (sel) => document.querySelectorAll(sel);
+  all('#bar [data-lay]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lay === views.layout)));
+  all('#bar [data-view]').forEach((b) => b.setAttribute('aria-pressed', String((views.layout === 'focus' || views.layout === 'single') && views.main === parseInt(b.dataset.view, 10))));
+  all('#bar [data-panel]').forEach((b) => b.setAttribute('aria-pressed', String(!$(b.dataset.panel).hidden)));
+  $('tbCross').setAttribute('aria-pressed', String(state.cross));
+  $('tbWL').setAttribute('aria-pressed', String(!$('popWL').hidden));
+  $('tbHelp').setAttribute('aria-pressed', String(!$('popHelp').hidden));
+  // give the views the room of panels that are switched off
+  const noHisto = $('histo').hidden;
+  const noRight = ['tissues', 'toothP', 'crossP', 'tune', 'info'].every((id) => $(id).hidden);
+  const b = document.body;
+  const changed = b.classList.contains('nohisto') !== noHisto || b.classList.contains('noright') !== noRight;
+  b.classList.toggle('nohisto', noHisto);
+  b.classList.toggle('noright', noRight);
+  if (changed) { if (views.layout !== 'off') layoutViews(); else { drawHist(); requestRender(); } }
+}
+
+// buttons
+$('tbFiles').addEventListener('click', () => $('fileIn').click());
+$('tbFolder').addEventListener('click', () => $('dirIn').click());
+document.querySelectorAll('#bar [data-lay]').forEach((b) => b.addEventListener('click', () => setLayout(b.dataset.lay)));
+document.querySelectorAll('#bar [data-view]').forEach((b) => b.addEventListener('click', () => chooseMain(parseInt(b.dataset.view, 10))));
+document.querySelectorAll('#bar [data-panel]').forEach((b) => b.addEventListener('click', () => toggleHidden(b.dataset.panel)));
+$('tbCross').addEventListener('click', () => { state.cross = !state.cross; $('crossOn').checked = state.cross; updateSlice(); requestRender(); });
+$('tbReset').addEventListener('click', resetView);
+$('tbPresent').addEventListener('click', togglePresent);
+$('tbTeeth').addEventListener('click', runDetect);
+
+// popovers: window / level, help
+function closePops() { $('popWL').hidden = true; $('popHelp').hidden = true; }
+function togglePop(id, btn) {
+  const p = $(id), open = p.hidden;
+  closePops();
+  if (open) {
+    p.hidden = false;
+    const r = btn.getBoundingClientRect();
+    p.style.left = clamp(r.left, 8, window.innerWidth - p.offsetWidth - 8) + 'px';
+  }
+  hideTip();
+  syncBar();
+}
+$('tbWL').addEventListener('click', () => togglePop('popWL', $('tbWL')));
+$('tbHelp').addEventListener('click', () => togglePop('popHelp', $('tbHelp')));
+document.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.pop, #tbWL, #tbHelp')) return;
+  if (!$('popWL').hidden || !$('popHelp').hidden) { closePops(); syncBar(); }
+});
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && (!$('popWL').hidden || !$('popHelp').hidden)) { closePops(); syncBar(); } });
+$('wlReset').addEventListener('click', () => { if (vol) { resetWindow(); updateSlice(); } });
+
+// small screens: start with the side panels closed
+if (window.matchMedia('(max-width: 720px)').matches) { ['tissues', 'toothP', 'crossP', 'histo'].forEach((id) => { $(id).hidden = true; }); }
+syncBar();
+
+function el(tag, cls, props) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (props) Object.assign(e, props);
+  return e;
+}
+function resetLayers() {
+  const conv = (hu) => (vol && !vol.ct ? Math.round(vol.lo + ((hu + 1024) / 4095) * (vol.hi - vol.lo)) : hu);
+  layers = DEFAULT_LAYERS.map((l) => ({ ...l, from: conv(l.from), to: conv(l.to) }));
+}
+function layersChanged() {
+  buildTF();
+  requestRender();
+}
+function renderLayers() {
+  const list = $('layerList');
+  list.textContent = '';
+  const nonCT = vol && !vol.ct;
+  const stepV = nonCT ? Math.max(1, Math.round((vol.hi - vol.lo) / 400)) : 10;
+  $('layerHint').textContent = nonCT
+    ? 'Ranges are raw scanner values for this non-CT series. Tick a layer to show it.'
+    : 'Ranges are in Hounsfield units (HU). Tick a layer to show it.';
+  layers.forEach((L) => {
+    const row = el('div', 'layer' + (L.visible ? '' : ' off'));
+    const top = el('div', 'ltop');
+    const vis = el('input', 'lvis', { type: 'checkbox', checked: L.visible, id: 'lv_' + L.id });
+    vis.setAttribute('aria-label', 'Show ' + L.name);
+    const col = el('input', 'lcol', { type: 'color', value: L.color });
+    col.setAttribute('aria-label', 'Colour of ' + L.name);
+    const nm = el('input', 'lname', { type: 'text', value: L.name, maxLength: 28 });
+    nm.setAttribute('aria-label', 'Layer name');
+    top.append(vis, col, nm);
+    if (!L.builtin) {
+      const rm = el('button', 'lrm', { type: 'button', textContent: '×' });
+      rm.setAttribute('aria-label', 'Remove ' + L.name);
+      rm.addEventListener('click', () => { layers = layers.filter((x) => x !== L); renderLayers(); layersChanged(); });
+      top.append(rm);
+    }
+    const bot = el('div', 'lbot');
+    const from = el('input', 'lnum', { type: 'number', step: String(stepV), value: String(Math.round(L.from)) });
+    from.setAttribute('aria-label', 'Lowest value of ' + L.name);
+    const dash = el('span', 'dash', { textContent: '–' });
+    const to = el('input', 'lnum', { type: 'number', step: String(stepV), value: String(Math.round(L.to)) });
+    to.setAttribute('aria-label', 'Highest value of ' + L.name);
+    const op = el('input', 'lop', { type: 'range', min: '0', max: '1', step: '0.01', value: String(L.opacity), title: 'Opacity' });
+    op.setAttribute('aria-label', 'Opacity of ' + L.name);
+    if (L.seg) bot.append(el('span', 'dash', { textContent: 'detected automatically' }), op);
+    else bot.append(from, dash, to, op);
+    row.append(top, bot);
+    list.append(row);
+
+    vis.addEventListener('change', () => { L.visible = vis.checked; row.classList.toggle('off', !L.visible); layersChanged(); });
+    col.addEventListener('input', () => { L.color = col.value; buildTF(); requestRender(); });
+    nm.addEventListener('input', () => { L.name = nm.value; });
+    from.addEventListener('input', () => { const v = parseFloat(from.value); if (Number.isFinite(v)) { L.from = v; buildTF(); requestRender(); } });
+    to.addEventListener('input', () => { const v = parseFloat(to.value); if (Number.isFinite(v)) { L.to = v; buildTF(); requestRender(); } });
+    op.addEventListener('input', () => { L.opacity = parseFloat(op.value); buildTF(); requestRender(); });
+  });
+}
+$('addLayer').addEventListener('click', () => {
+  const lo = vol ? vol.lo : -1024, span = vol ? vol.hi - vol.lo : 4095;
+  layerSeq++;
+  layers.push({
+    id: 'c' + layerSeq, name: 'Custom ' + layerSeq,
+    from: Math.round(lo + span * 0.42), to: Math.round(lo + span * 0.5),
+    color: CUSTOM_COLORS[(layerSeq - 1) % CUSTOM_COLORS.length], opacity: 0.6, visible: true, builtin: false,
+  });
+  renderLayers();
+  layersChanged();
+});
+$('resetLayers').addEventListener('click', () => { resetLayers(); renderLayers(); layersChanged(); });
+
+function updateInfo() {
+  if ($('info').hidden || !vol) return;
+  const unit = vol.ct ? 'HU' : 'raw';
+  const rows = [
+    ['Grid', vol.nx + ' × ' + vol.ny + ' × ' + vol.nz],
+    ['Source', vol.sourceDims[0] + ' × ' + vol.sourceDims[1] + ' × ' + vol.sourceSlices],
+    ['Voxel (mm)', vol.sx.toFixed(2) + ' × ' + vol.sy.toFixed(2) + ' × ' + vol.sz.toFixed(2)],
+    ['Size (mm)', (vol.nx * vol.sx).toFixed(0) + ' × ' + (vol.ny * vol.sy).toFixed(0) + ' × ' + (vol.nz * vol.sz).toFixed(0)],
+    ['Modality', vol.modality || 'unknown'],
+    ['Data range', vol.min + ' … ' + vol.max + ' ' + unit],
+    ['Mapped range', Math.round(vol.lo) + ' … ' + Math.round(vol.hi) + ' ' + unit],
+    ['GPU texture', 'r16float · ' + (vol.nx * vol.ny * vol.nz * 2 / 1048576).toFixed(0) + ' MB'],
+    ['Render size', lastRes || '–'],
+    ['Ray steps', String(state.steps)],
+    ['GPU time', gpuMs ? gpuMs.toFixed(1) + ' ms' : '–'],
+    ['Adapter', adapterDesc || 'unknown'],
+  ];
+  $('infoBody').innerHTML = rows.map((r) => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
+}
+
+/* ------------------------------------------------------------------ histogram */
+function drawHist() {
+  const c = $('hist');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = c.clientWidth, h = c.clientHeight;
+  if (!w || !h) return;
+  c.width = Math.floor(w * dpr); c.height = Math.floor(h * dpr);
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  if (!vol) return;
+  const padL = 6, padR = 6, padT = 24, padB = 30;
+  const pw = w - padL - padR, ph = h - padT - padB;
+  const hist = vol.hist;
+  let mx = 1;
+  for (let i = 0; i < 256; i++) mx = Math.max(mx, Math.log1p(hist[i]));
+  const vspan = vol.hi - vol.lo;
+  for (const L of layers) {
+    if (!L.visible || L.seg) continue;
+    const x1 = padL + clamp((Math.min(L.from, L.to) - vol.lo) / vspan, 0, 1) * pw;
+    const x2 = padL + clamp((Math.max(L.from, L.to) - vol.lo) / vspan, 0, 1) * pw;
+    if (x2 - x1 < 0.5) continue;
+    g.globalAlpha = 0.14 + 0.22 * L.opacity;
+    g.fillStyle = L.color;
+    g.fillRect(x1, padT, x2 - x1, ph);
+    g.globalAlpha = 1;
+    g.fillRect(x1, padT, x2 - x1, 2);
+  }
+  g.fillStyle = 'rgba(126,168,255,0.38)';
+  const bw = pw / 256;
+  for (let i = 0; i < 256; i++) {
+    const bh = (Math.log1p(hist[i]) / mx) * ph;
+    g.fillRect(padL + i * bw, padT + ph - bh, Math.max(1, bw - 0.5), bh);
+  }
+  // colour strip from the transfer function
+  const sy0 = padT + ph + 4;
+  for (let x = 0; x < pw; x++) {
+    const ti = Math.min(1023, Math.floor((x / pw) * 1024)) * 4;
+    g.fillStyle = 'rgb(' + tfData[ti] + ',' + tfData[ti + 1] + ',' + tfData[ti + 2] + ')';
+    g.fillRect(padL + x, sy0, 1, 5);
+  }
+  // opacity curve
+  g.beginPath();
+  for (let x = 0; x <= pw; x++) {
+    const ti = Math.min(1023, Math.floor((x / pw) * 1024)) * 4 + 3;
+    const y = padT + ph - (tfData[ti] / 255) * ph;
+    if (x === 0) g.moveTo(padL + x, y); else g.lineTo(padL + x, y);
+  }
+  g.strokeStyle = '#eef2f7'; g.lineWidth = 1.5; g.stroke();
+  // ticks
+  g.fillStyle = '#8592a3'; g.font = '10px "JetBrains Mono", ui-monospace, monospace'; g.textBaseline = 'top';
+  const ticks = [];
+  if (vol.ct) for (let hu = -1000; hu <= 3000; hu += 500) ticks.push(hu);
+  else for (let i = 0; i <= 4; i++) ticks.push(Math.round(vol.lo + ((vol.hi - vol.lo) * i) / 4));
+  ticks.forEach((tv, i) => {
+    const x = padL + ((tv - vol.lo) / (vol.hi - vol.lo)) * pw;
+    if (x < padL || x > padL + pw) return;
+    g.fillRect(x, sy0 + 7, 1, 3);
+    g.textAlign = i === 0 ? 'left' : i === ticks.length - 1 ? 'right' : 'center';
+    g.fillText(String(tv), x, sy0 + 11);
+  });
+  g.textAlign = 'right';
+  g.fillText(vol.ct ? 'HU · log count' : 'raw · log count', w - 8, 10);
+}
+
+/* ------------------------------------------------------------------ loading files */
+async function loadFiles(files) {
+  files = files.filter((f) => f.size > 132);
+  if (!files.length) return;
+  showOverlay('Reading ' + files.length + ' file' + (files.length === 1 ? '' : 's') + '…');
+  await tick();
+  try {
+    const entries = [];
+    let lastErr = null, done = 0;
+    for (const f of files) {
+      try {
+        let buf = await f.arrayBuffer();
+        let info = parseDicom(buf);
+        if (info && info.deflatedAt !== undefined) {   // deflated transfer syntax: inflate the dataset, then parse again
+          buf = await inflateDataset(buf, info.deflatedAt);
+          info = parseDicom(buf, { inflated: true });
+        }
+        if (info) entries.push({ buf, info });
+      } catch (err) { lastErr = err; }
+      if (++done % 8 === 0) { $('overlayMsg').textContent = 'Reading ' + done + ' / ' + files.length + '…'; await tick(); }
+    }
+    if (!entries.length) throw (lastErr || new Error('No readable DICOM images were found in the selection.'));
+    const v = await buildVolume(entries, (m) => { $('overlayMsg').textContent = m; });
+    $('overlayMsg').textContent = 'Uploading to the GPU…';
+    await tick();
+    setVolume(v);
+    hideOverlay();
+  } catch (err) {
+    showOverlay(err.message || String(err), true);
+  }
+}
+$('fileIn').addEventListener('change', (e) => { loadFiles([...e.target.files]); e.target.value = ''; });
+$('dirIn').addEventListener('change', (e) => { loadFiles([...e.target.files]); e.target.value = ''; });
+$('demoBtn').addEventListener('click', async () => {
+  showOverlay('Generating phantom…'); await tick();
+  try { setVolume(makePhantom()); hideOverlay(); } catch (err) { showOverlay(err.message, true); }
+});
+
+async function entryFiles(entry, out) {
+  if (entry.isFile) { await new Promise((res) => entry.file((f) => { out.push(f); res(); }, () => res())); }
+  else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    for (;;) {
+      const batch = await new Promise((res) => reader.readEntries(res, () => res([])));
+      if (!batch.length) break;
+      for (const ch of batch) await entryFiles(ch, out);
+    }
+  }
+}
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) document.body.classList.remove('dragging'); });
+window.addEventListener('dragover', (e) => e.preventDefault());
+window.addEventListener('drop', async (e) => {
+  e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
+  const items = e.dataTransfer && e.dataTransfer.items;
+  const files = [];
+  if (items && items.length && items[0].webkitGetAsEntry) {
+    const entries = [...items].map((it) => it.webkitGetAsEntry()).filter(Boolean);
+    for (const en of entries) await entryFiles(en, files);
+  } else if (e.dataTransfer) files.push(...e.dataTransfer.files);
+  loadFiles(files);
+});
+
+/* ------------------------------------------------------------------ boot */
+new ResizeObserver(() => { drawHist(); updateSlice(); requestRender(); }).observe($('app'));
+(async () => {
+  showOverlay('Starting WebGPU…');
+  try {
+    await initGPU();
+    $('overlayMsg').textContent = 'Generating demo phantom…';
+    await tick();
+    setVolume(makePhantom());
+    hideOverlay();
+  } catch (err) {
+    $('dsMeta').textContent = 'WebGPU unavailable';
+    showOverlay(err.message || String(err), true);
+  }
+})();
+})();
+</script>
+
+</body></html>
