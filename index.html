@@ -208,6 +208,11 @@ body.nohisto { --qB: 16px; }
 body.noright { --qR: var(--gutter-r); }
 body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
 .ctl label .ax { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
+.planes { margin: -4px 0 12px 22px; }
+.planes[hidden] { display: none; }
+.planeAx { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 6px; }
+.planeAx .chk { margin-bottom: 0; gap: 6px; }
+.planeAx .ax { display: inline-block; width: 9px; height: 9px; border-radius: 2px; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 10px; cursor: pointer; }
 .chk input { accent-color: var(--accent); margin: 0; }
 #gizmo { position: absolute; left: calc(var(--gutter) + 8px); bottom: calc(var(--qB) + 8px); width: 96px; height: 96px; pointer-events: none; }
@@ -219,6 +224,76 @@ body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
   #rightcol { top: auto; bottom: 140px; left: var(--gutter); right: var(--gutter-r); width: auto; max-height: 36%; }
   .bname, .readout { display: none; }
 }
+
+/* ---------------------------------------------------------------- refined side panels + histogram */
+.panel {
+  background: linear-gradient(180deg, rgba(22, 29, 40, 0.88), rgba(11, 15, 21, 0.88));
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+}
+#rightcol { gap: 12px; padding-bottom: 4px; scrollbar-width: thin; scrollbar-color: #2a3442 transparent; }
+#rightcol .panel { padding: 14px 14px 14px; }
+#rightcol h2 {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  margin: -2px 0 12px; font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; color: #c3cedd;
+}
+#rightcol h2::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); flex: none; }
+#toothP h2::before { background: #ffc61a; box-shadow: 0 0 10px #ffc61a; }
+#crossP h2::before { background: #7bd88f; box-shadow: 0 0 10px #7bd88f; }
+#tune h2::before, #info h2::before { background: #b69cff; box-shadow: 0 0 10px #b69cff; }
+#rightcol h2::after { content: ""; margin-left: auto; width: 7px; height: 7px; border-right: 1.5px solid #6c7a8c; border-bottom: 1.5px solid #6c7a8c; transform: rotate(45deg) translate(-2px, -2px); transition: transform .18s; }
+#rightcol .panel.collapsed h2 { margin-bottom: 0; }
+#rightcol .panel.collapsed h2::after { transform: rotate(-45deg); }
+#rightcol .panel.collapsed > :not(h2) { display: none !important; }
+
+/* layer cards */
+#layerList { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.layer, #layerList > .layer:first-child {
+  position: relative; padding: 9px 10px 10px 13px; border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 11px; background: rgba(255, 255, 255, 0.025); transition: background .15s, border-color .15s, box-shadow .15s;
+}
+.layer::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--lc, var(--accent)); }
+.layer:hover { background: rgba(255, 255, 255, 0.045); }
+.layer.hot { border-color: var(--lc, var(--accent)); background: rgba(255, 255, 255, 0.06); box-shadow: 0 0 0 1px var(--lc, var(--accent)) inset, 0 0 18px -6px var(--lc, var(--accent)); }
+.lbot { padding-left: 0; margin-top: 8px; gap: 7px; }
+.lop { min-width: 54px; }
+.lbot .dash { font-size: 11.5px; }
+.lcol { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.18); overflow: hidden; }
+.lcol::-webkit-color-swatch { border-radius: 50%; }
+.lname { font: 600 12.5px/1.2 var(--font-body); }
+.lnum { width: 58px; background: rgba(0, 0, 0, 0.28); border-radius: 7px; text-align: center; padding: 5px 4px; -moz-appearance: textfield; }
+.lnum::-webkit-inner-spin-button { display: none; }
+.lrm { border-radius: 50%; background: transparent; }
+.lrm:hover { background: #2a1519; color: #ff8c9a; border-color: #5a2b33; }
+
+/* sliders */
+input[type=range] { -webkit-appearance: none; appearance: none; height: 18px; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, #4a6ca8, #2c3a50); }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: #222c3a; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: #e9f0ff; border: 2px solid var(--accent); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); transition: transform .12s; }
+input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: #e9f0ff; border: 2px solid var(--accent); }
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.18); }
+.ctl { margin-bottom: 12px; }
+.ctl label { font-weight: 500; }
+.ctl output { background: rgba(0, 0, 0, 0.3); padding: 3px 7px; border-radius: 6px; color: #b9c6d8; }
+
+/* buttons */
+.btn { border-radius: 8px; padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.09); transition: background .15s, border-color .15s; }
+.btn:hover { background: rgba(255, 255, 255, 0.09); border-color: rgba(255, 255, 255, 0.2); }
+.btn.primary { background: linear-gradient(180deg, #92b6ff, #6b97f2); border-color: #8fb2ff; box-shadow: 0 4px 14px -4px rgba(110, 154, 255, 0.6); }
+.btn.primary:hover { background: linear-gradient(180deg, #a5c3ff, #7aa3f7); }
+#toothP .hint { font-size: 12px; line-height: 1.5; }
+#tStatus { margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: rgba(0, 0, 0, 0.28); border: 1px solid rgba(255, 255, 255, 0.05); }
+.info { gap: 6px 14px; }
+.info dd { color: #cfd9e8; }
+.chk { padding: 2px 0; }
+
+/* histogram panel */
+#histo { padding: 6px 8px 4px; border-radius: 14px; }
+#histo h2 { top: 10px; left: 16px; display: flex; align-items: baseline; gap: 10px; font: 600 11px/1 var(--font-display); letter-spacing: 0.1em; color: #c3cedd; pointer-events: none; }
+#histo h2 .sub { font: 400 10.5px/1 var(--font-body); letter-spacing: 0; text-transform: none; color: #6f7d90; }
+@media (max-width: 720px) { #histo h2 .sub { display: none; } }
 </style>
 
 <div id="app">
@@ -251,6 +326,7 @@ body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
     <div class="grp">
       <button class="tb" type="button" data-tip="Window / level (slice brightness)" aria-label="Window / level (slice brightness)" id="tbWL" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg></button>
       <button class="tb" type="button" data-tip="Crosshair on / off" data-key="C" aria-label="Crosshair on / off" id="tbCross" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 2v6M12 16v6M2 12h6M16 12h6"/></svg></button>
+      <button class="tb" type="button" data-tip="Slices in 3D on / off" data-key="P" aria-label="Slices in 3D on / off" id="tbPlanes" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8.500L12 4l9 4.500-9 4.500z"/><path d="M12 13v8M3 8.500v7L12 20M21 8.500v7L12 20"/></svg></button>
       <button class="tb" type="button" data-tip="Reset 3D view" data-key="R" aria-label="Reset 3D view" id="tbReset"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/></svg></button>
       <button class="tb" type="button" data-tip="Presentation mode" data-key="H" aria-label="Presentation mode" id="tbPresent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     </div>
@@ -295,6 +371,7 @@ body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
       <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>Big view: axial, coronal, sagittal, 3D</dd>
       <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Previous / next slice</dd>
       <dt><kbd>C</kbd></dt><dd>Crosshair on / off</dd>
+      <dt><kbd>P</kbd></dt><dd>Slices in the 3D view on / off</dd>
       <dt><kbd>R</kbd></dt><dd>Reset 3D view</dd>
       <dt><kbd>H</kbd></dt><dd>Presentation mode</dd>
       <dt><kbd>T</kbd> <kbd>I</kbd> <kbd>G</kbd></dt><dd>Tissues, details, tuning panels</dd>
@@ -306,7 +383,7 @@ body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
   <div id="tip" role="tooltip" hidden></div>
 
   <section id="histo" class="panel">
-    <h2>Intensity histogram</h2>
+    <h2>Intensity histogram <span class="sub">drag a layer's edges to set its range · drag inside a band to move it</span></h2>
     <canvas id="hist"></canvas>
   </section>
 
@@ -330,6 +407,15 @@ body.present { --qL: 8px; --qR: 8px; --qT: 8px; --qB: 8px; }
     <aside id="crossP" class="panel">
       <h2>Crosshair</h2>
       <label class="chk"><input id="crossOn" type="checkbox" checked> Show crosshair <kbd>C</kbd></label>
+      <label class="chk"><input id="planesOn" type="checkbox"> Show slices in 3D <kbd>P</kbd></label>
+      <div id="planesBody" class="planes" hidden>
+        <div class="planeAx">
+          <label class="chk"><input id="planeY" type="checkbox" checked><span class="ax" style="background:#4cf261"></span>Axial</label>
+          <label class="chk"><input id="planeZ" type="checkbox" checked><span class="ax" style="background:#5794ff"></span>Coronal</label>
+          <label class="chk"><input id="planeX" type="checkbox" checked><span class="ax" style="background:#ff4747"></span>Sagittal</label>
+        </div>
+        <div class="ctl"><label for="planeOp">Slice opacity</label><output id="planeOpO">100%</output><input id="planeOp" type="range" min="0.1" max="1" step="0.05" value="1"></div>
+      </div>
       <div id="crossBody"></div>
       <div class="btnrow"><button id="crossCenter" class="btn" type="button">Centre</button></div>
     </aside>
@@ -371,6 +457,8 @@ struct U {
   misc   : vec4f,   // x pixel angular size, y aspect, z solidity, w crosshair line width (px)
   cross  : vec4f,   // xyz crosshair position in world units, w = crosshair visible (0/1)
   tooth  : vec4f,   // rgb colour of grown teeth, w = opacity (0 = teeth colouring off)
+  slc    : vec4f,   // slice planes in 3D: grey = clamp(s * x + y), z = opacity, w = on (0/1)
+  slc2   : vec4f,   // xyz = show the sagittal (x), axial (y), coronal (z) plane (0/1)
 };
 @group(0) @binding(0) var<uniform> u : U;
 @group(0) @binding(1) var smp : sampler;
@@ -428,6 +516,26 @@ fn axisLine(ro : vec3f, rd : vec3f, c : vec3f, a : vec3f, cA : f32, extA : f32, 
   return vec2f(clamp(tl, tn, tfar), cov);
 }
 
+// Colour of a slice plane at world point p: the scan in window/level greys, teeth tinted, a frame in the axis colour.
+// ax: 0 = plane across x (sagittal), 1 = across y (axial), 2 = across z (coronal). w = opacity.
+fn planeCol(p : vec3f, ax : i32, px : f32) -> vec4f {
+  let e = u.ext.xyz;
+  let tc = texCoord(p);
+  let gv = clamp(dens(tc) * u.slc.x + u.slc.y, 0.0, 1.0);
+  var c = vec3f(gv);
+  let m = smoothstep(0.35, 0.65, textureSampleLevel(seg, smp, tc, 0.0).r * 255.0) * step(0.001, u.tooth.w);
+  c = mix(c, u.tooth.rgb * (0.35 + 0.75 * gv), m * 0.55);
+  // distance (world units) to the plane's border
+  var d = 0.0;
+  var fc = vec3f(1.0);
+  if (ax == 0) { d = min(e.y - abs(p.y), e.z - abs(p.z)); fc = vec3f(1.00, 0.28, 0.28); }
+  else if (ax == 1) { d = min(e.x - abs(p.x), e.z - abs(p.z)); fc = vec3f(0.30, 0.95, 0.38); }
+  else { d = min(e.x - abs(p.x), e.y - abs(p.y)); fc = vec3f(0.34, 0.58, 1.00); }
+  let edge = 1.0 - smoothstep(1.2 * px, 2.4 * px, d);
+  c = mix(c, fc, edge);
+  return vec4f(c, max(u.slc.z, edge));
+}
+
 @fragment
 fn fs(fin : VOut) -> @location(0) vec4f {
   let ro = u.camPos.xyz;
@@ -472,8 +580,33 @@ fn fs(fin : VOut) -> @location(0) vec4f {
     lc = vec3f(hx.y, hy.y, hz.y);
   }
 
+  // slice planes through the crosshair (t along the ray; -1 = not hit inside the box)
+  var pt = vec3f(-1.0);
+  if (u.slc.w > 0.5) {
+    for (var a = 0; a < 3; a = a + 1) {
+      if (u.slc2[a] < 0.5) { continue; }
+      let den = rd[a];
+      if (abs(den) < 1e-6) { continue; }
+      let th = (cc[a] - ro[a]) / den;
+      if (th < tn || th > tfar) { continue; }
+      pt[a] = th;
+    }
+  }
+
   for (var i = 0; i < maxIter; i = i + 1) {
     if (t > tfar) { break; }
+    // composite any slice plane the ray has just passed, in depth order (they are thin, so one step is enough)
+    if (u.slc.w > 0.5) {
+      for (var a = 0; a < 3; a = a + 1) {
+        if (pt[a] >= 0.0 && t >= pt[a]) {
+          let pc = planeCol(ro + rd * pt[a], a, max(pt[a], 0.001) * u.misc.x);
+          accC = accC + (1.0 - accA) * pc.a * pc.rgb;
+          accA = accA + (1.0 - accA) * pc.a;
+          pt[a] = -1.0;
+        }
+      }
+      if (accA > 0.99) { break; }
+    }
     if (lt.x >= 0.0 && lv.x < 0.0 && t >= lt.x) { lv.x = 1.0 - accA; }
     if (lt.y >= 0.0 && lv.y < 0.0 && t >= lt.y) { lv.y = 1.0 - accA; }
     if (lt.z >= 0.0 && lv.z < 0.0 && t >= lt.z) { lv.z = 1.0 - accA; }
@@ -511,6 +644,18 @@ fn fs(fin : VOut) -> @location(0) vec4f {
     t = t + dt;
   }
 
+  if (u.slc.w > 0.5) {
+    for (var n = 0; n < 3; n = n + 1) {   // planes the loop did not reach (near the far side of the box)
+      var bi = -1; var bt = 1e9;
+      for (var a = 0; a < 3; a = a + 1) { if (pt[a] >= 0.0 && pt[a] < bt) { bt = pt[a]; bi = a; } }
+      if (bi < 0 || accA > 0.99) { break; }
+      let pc = planeCol(ro + rd * bt, bi, max(bt, 0.001) * u.misc.x);
+      accC = accC + (1.0 - accA) * pc.a * pc.rgb;
+      accA = accA + (1.0 - accA) * pc.a;
+      pt[bi] = -1.0;
+    }
+  }
+
   var outc = accC * u.params.z + bg * (1.0 - accA);
 
   // crosshair lines: full strength in front of the volume, dimmed (not hidden) behind solid tissue
@@ -544,7 +689,8 @@ let layers = [];
 let layerSeq = 0;
 
 const state = { density: 1.0, brightness: 1.1, steps: 384, light: 0.8, edge: 0.35, soft: 30, solid: 0.65,
-  cross: true, cx: 0, cy: 0, cz: 0, lineW: 1.8 };
+  cross: true, cx: 0, cy: 0, cz: 0, lineW: 1.8,
+  planes: false, planeOp: 1, planeX: true, planeY: true, planeZ: true };
 const TUNING = [
   { key: 'solid', label: 'Solidity', min: 0, max: 1, step: 0.05, fmt: (v) => Math.round(v * 100) + '%', tf: false },
   { key: 'density', label: 'Opacity', min: 0.2, max: 3, step: 0.05, fmt: (v) => v.toFixed(2) + '×', tf: false },
@@ -1077,7 +1223,7 @@ async function initGPU() {
     fragment: { module, entryPoint: 'fs', targets: [{ format }] },
     primitive: { topology: 'triangle-list' },
   });
-  uniformBuf = device.createBuffer({ size: 160, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  uniformBuf = device.createBuffer({ size: 192, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
   sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge', addressModeW: 'clamp-to-edge' });
   tfTex = device.createTexture({ size: [1024, 1, 1], format: 'rgba8unorm', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST });
   dummyMask = device.createTexture({ size: [1, 1, 1], dimension: '3d', format: 'r8unorm', usage: GPUTextureUsage.TEXTURE_BINDING });
@@ -1284,7 +1430,7 @@ function render() {
 
   const { pos, fwd, right, up } = camBasis();
   const aspect = w / h;
-  const f = new Float32Array(40);
+  const f = new Float32Array(48);
   f.set([pos[0], pos[1], pos[2], 0], 0);
   f.set([right[0] * aspect * TAN_HALF, right[1] * aspect * TAN_HALF, right[2] * aspect * TAN_HALF, 0], 4);
   f.set([up[0] * TAN_HALF, up[1] * TAN_HALF, up[2] * TAN_HALF, 0], 8);
@@ -1296,6 +1442,12 @@ function render() {
   // crosshair position: sliders are -100..100 % of each half extent (world x, y, z)
   f.set([state.cx * vol.ext[0], state.cy * vol.ext[1], state.cz * vol.ext[2], state.cross ? 1 : 0], 32);
   f.set(toothUni, 36);
+  // slice planes: same window / level as the 2D views; the texture holds (value - lo) / (hi - lo)
+  {
+    const span = vol.hi - vol.lo, ww = Math.max(1e-6, sl.ww), w0 = sl.wl - sl.ww / 2;
+    f.set([span / ww, (vol.lo - w0) / ww, state.planeOp, state.planes ? 1 : 0], 40);
+    f.set([state.planeX ? 1 : 0, state.planeY ? 1 : 0, state.planeZ ? 1 : 0, 0], 44);
+  }
   device.queue.writeBuffer(uniformBuf, 0, f);
 
   const enc = device.createCommandEncoder();
@@ -1403,6 +1555,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 't') toggleHidden('tissues');
   else if (k === 'i') toggleHidden('info');
   else if (k === 'c') { state.cross = !state.cross; $('crossOn').checked = state.cross; updateSlice(); requestRender(); }
+  else if (k === 'p') togglePlanes();
 });
 $('exitPresent').addEventListener('click', togglePresent);
 
@@ -1452,6 +1605,20 @@ function setCross(key, v) {
 function centerCross() { AXES.forEach((a) => setCross(a.key, 0)); }
 $('crossOn').addEventListener('change', () => { state.cross = $('crossOn').checked; updateSlice(); requestRender(); });
 $('crossCenter').addEventListener('click', centerCross);
+// slice planes inside the 3D view, at the crosshair position, using the slice views' window / level
+function setPlanes(on) {
+  state.planes = on;
+  $('planesOn').checked = on;
+  $('planesBody').hidden = !on;
+  if (typeof syncBar === 'function') syncBar();
+  requestRender();
+}
+function togglePlanes() { setPlanes(!state.planes); }
+$('planesOn').addEventListener('change', () => setPlanes($('planesOn').checked));
+[['planeX', 'planeX'], ['planeY', 'planeY'], ['planeZ', 'planeZ']].forEach(([id, key]) => {
+  $(id).addEventListener('change', () => { state[key] = $(id).checked; requestRender(); });
+});
+$('planeOp').addEventListener('input', () => { state.planeOp = parseFloat($('planeOp').value); $('planeOpO').textContent = Math.round(state.planeOp * 100) + '%'; requestRender(); });
 
 /* ------------------------------------------------------------------ automatic tooth detection (algorithm) */
 /* Automatic tooth detection. Pure functions (no DOM) so the same code runs in the page and in the Node test.
@@ -1459,11 +1626,12 @@ $('crossCenter').addEventListener('click', centerCross);
  * Idea: teeth are the densest compact objects in a dental scan (enamel). Instead of one fixed density range
  * (which overlaps cortical bone), the code
  *   1. works out the tissue levels from the histogram itself (Otsu, so it adapts to CT, CBCT and any scale),
- *   2. sweeps a density threshold upward and keeps the level at which the most "tooth-sized, compact" blobs
- *      exist (below that level the teeth merge with the jaw and stop being compact blobs),
- *   3. grows each blob into dentin and root with a threshold derived from its neighbourhood, limited in reach,
- *   4. cuts thin bridges to cortical bone (morphological opening), fills the pulp, drops tiny pieces,
- *   5. maps the result back to full resolution.
+ *   2. sweeps a density threshold upward and keeps the tooth-sized, compact blobs (enamel caps of the crowns),
+ *   3. fits the occlusal surface through the gaps between upper and lower crowns,
+ *   4. walks each jaw slice by slice away from that surface at full resolution: near the surface every dense
+ *      pixel is crown; further on a tooth may only continue into dense pixels next to where it was one slice
+ *      earlier, and a root is never allowed to get wider. Cortical bone is as dense as dentin, so this shape
+ *      rule (not density) is what keeps the jaw out. Thin slivers are opened away and the pulp is filled.
  */
 async function detectTeeth(v, opt, progress) {
   const nx = v.nx, ny = v.ny, nz = v.nz, raw = v.raw, sx = v.sx, sy = v.sy, sz = v.sz;
@@ -1541,20 +1709,23 @@ async function detectTeeth(v, opt, progress) {
   /* ---- 3. level sweep: where are the most tooth-like compact blobs? ---- */
   const lab = new Int32Array(wn);
   const Qc = new Int32Array(nc);
+  let nc2 = nc;
   const VMIN = 12, VMAX = 5000, EMAX = 34, EMIN = 2.4, FILL = 0.10;
   // returns total volume of tooth-like blobs at level L; with `seedMask` it also records their voxels
+  let CENTS = null;
   function sweep(L, seedMask) {
-    for (let i = 0; i < nc; i++) lab[cand[i]] = 0;
+    for (let i = 0; i < nc; i++) lab[cand[i]] = 0;  // clears everything possibly labelled
     let score = 0, blobs = 0;
-    for (let ci = 0; ci < nc; ci++) {
+    for (let ci = 0; ci < nc2; ci++) {
       const s = cand[ci];
       if (lab[s] || W[s] < L) continue;
       let qh = 0, qt = 0;
       Qc[qt++] = s; lab[s] = 1;
-      let x0 = wx, x1 = -1, y0 = wy, y1 = -1, z0 = wz, z1 = -1;
+      let x0 = wx, x1 = -1, y0 = wy, y1 = -1, z0 = wz, z1 = -1, sxm = 0, sym = 0, szm = 0;
       while (qh < qt) {
         const q = Qc[qh++];
         const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+        sxm += x; sym += y; szm += z;
         if (x < x0) x0 = x; if (x > x1) x1 = x;
         if (y < y0) y0 = y; if (y > y1) y1 = y;
         if (z < z0) z0 = z; if (z > z1) z1 = z;
@@ -1571,17 +1742,55 @@ async function detectTeeth(v, opt, progress) {
       const ex = (x1 - x0 + 1) * wsx, ey = (y1 - y0 + 1) * wsy, ez = (z1 - z0 + 1) * wsz;
       if (Math.max(ex, ey, ez) > EMAX || Math.min(ex, ey, ez) < EMIN) continue;
       if (qt / ((x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1)) < FILL) continue;
+      if (CENTS) CENTS.push([sxm / qt * wsx, sym / qt * wsy, szm / qt * wsz, V]);
       score += V; blobs++;
       if (seedMask) for (let i = 0; i < qt; i++) seedMask[Qc[i]] = 1;
     }
     return { score, blobs };
+  }
+  /* ---- 3a. where is the dentition? many separate dense tooth-sized blobs close together ---- */
+  await say('Locating the dentition…');
+  {
+    const R = 40, NEED = 6;
+    const uniq = [];
+    let found = null;
+    for (let f = 0.92; f >= 0.4; f -= 0.04) {
+      CENTS = [];
+      sweep(hard + (hmax - hard) * f, null);
+      for (const c of CENTS) if (!uniq.some((u) => Math.hypot(u[0] - c[0], u[1] - c[1], u[2] - c[2]) < 4)) uniq.push(c);
+      CENTS = null;
+      if (uniq.length < NEED) continue;
+      // biggest group of blobs that are chained together within R mm
+      const grp = new Int32Array(uniq.length).fill(-1); let gi = 0, bestG = -1, bestN = 0;
+      for (let i = 0; i < uniq.length; i++) {
+        if (grp[i] >= 0) continue;
+        const st = [i]; grp[i] = gi; let n = 0;
+        while (st.length) { const a2 = st.pop(); n++; for (let j = 0; j < uniq.length; j++) if (grp[j] < 0 && Math.hypot(uniq[a2][0] - uniq[j][0], uniq[a2][1] - uniq[j][1], uniq[a2][2] - uniq[j][2]) < R) { grp[j] = gi; st.push(j); } }
+        if (n > bestN) { bestN = n; bestG = gi; } gi++;
+      }
+      if (bestN >= NEED) { found = { f, members: uniq.filter((_, i) => grp[i] === bestG) }; break; }
+    }
+    info.cluster = found ? found.members.length : 0;
+    if (found) {
+      const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+      for (const c of found.members) for (let a2 = 0; a2 < 3; a2++) { lo[a2] = Math.min(lo[a2], c[a2]); hi[a2] = Math.max(hi[a2], c[a2]); }
+      const MARG = 22;  // mm: roots and crowns extend past the blob centres
+      const x0 = Math.max(0, Math.floor((lo[0] - MARG) / wsx)), x1 = Math.min(wx - 1, Math.ceil((hi[0] + MARG) / wsx));
+      const y0 = Math.max(0, Math.floor((lo[1] - MARG) / wsy)), y1 = Math.min(wy - 1, Math.ceil((hi[1] + MARG) / wsy));
+      const z0 = Math.max(0, Math.floor((lo[2] - MARG) / wsz)), z1 = Math.min(wz - 1, Math.ceil((hi[2] + MARG) / wsz));
+      info.roi = [x0, y0, z0, x1, y1, z1]; info.roiF = +found.f.toFixed(2);
+      for (let q = 0; q < wn; q++) { const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx; if (x < x0 || x > x1 || y < y0 || y > y1 || z < z0 || z > z1) W[q] = mn; }
+      let c = 0; for (let q = 0; q < wn; q++) if (W[q] >= hard) cand[c++] = q;
+      nc2 = c;
+    }
   }
   await say('Looking for teeth…');
   const STEPS = 22;
   const S = new Uint8Array(wn);     // seeds: every tooth-like blob at every level (each tooth ends up with its largest one)
   let best = { score: 0, blobs: 0, L: 0 };
   for (let i = 0; i < STEPS; i++) {
-    const L = hard + (hmax - hard) * (0.12 + (0.85 * i) / (STEPS - 1));
+    const f0 = info.roi ? 0.45 : 0.12;
+    const L = hard + (hmax - hard) * (f0 + ((0.97 - f0) * i) / (STEPS - 1));
     const r = sweep(L, S);
     if (r.score > best.score * 1.0001) best = { score: r.score, blobs: r.blobs, L };
     if (i % 4 === 3) await pause();
@@ -1626,143 +1835,301 @@ async function detectTeeth(v, opt, progress) {
   const frac = 0.75 - 0.5 * sens;
   const tlow = hard + frac * (dentin - hard);
   info.dentin = Math.round(dentin); info.tlow = Math.round(tlow);
-  {
-    let head = 0, depth = 0;
-    while (head < qt && depth < rW) {
-      const end = qt;
-      while (head < end) {
-        const q = Q[head++];
-        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
-        let n;
-        if (x > 0) { n = q - 1; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-        if (x < wx - 1) { n = q + 1; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-        if (y > 0) { n = q - wx; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-        if (y < wy - 1) { n = q + wx; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-        if (z > 0) { n = q - wxy; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-        if (z < wz - 1) { n = q + wxy; if (!M[n] && W[n] >= tlow) { M[n] = 1; Q[qt++] = n; } }
-      }
-      depth++;
-    }
-  }
   await pause();
 
-  /* ---- 5. cut thin bridges to bone (opening), keep what is connected to a seed, fill the pulp ---- */
-  await say('Cleaning up…');
-  const nOpen = Math.round(o.sep / meanW);
-  let K = M;
-  const erode = (A) => {
-    const B = new Uint8Array(wn);
-    for (let z = 1; z < wz - 1; z++) for (let y = 1; y < wy - 1; y++) {
-      let q = z * wxy + y * wx + 1;
-      for (let x = 1; x < wx - 1; x++, q++) {
-        if (A[q] && A[q - 1] && A[q + 1] && A[q - wx] && A[q + wx] && A[q - wxy] && A[q + wxy]) B[q] = 1;
-      }
-    }
-    return B;
-  };
-  const dilate = (A, limit) => {
-    const B = new Uint8Array(wn);
-    for (let z = 0; z < wz; z++) for (let y = 0; y < wy; y++) {
-      let q = z * wxy + y * wx;
-      for (let x = 0; x < wx; x++, q++) {
-        if (A[q]) { B[q] = 1; continue; }
-        if (limit && !limit[q]) continue;
-        if ((x > 0 && A[q - 1]) || (x < wx - 1 && A[q + 1]) || (y > 0 && A[q - wx]) || (y < wy - 1 && A[q + wx]) || (z > 0 && A[q - wxy]) || (z < wz - 1 && A[q + wxy])) B[q] = 1;
-      }
-    }
-    return B;
-  };
-  if (nOpen > 0) {
-    let E = M;
-    for (let i = 0; i < nOpen; i++) E = erode(E);
-    let D = E;
-    for (let i = 0; i < nOpen; i++) D = dilate(D, M);
-    for (let q = 0; q < wn; q++) if (S[q]) D[q] = 1;     // never lose the enamel itself
-    K = D;
+  /* ---- 5. crowns at full resolution, split into upper and lower jaw ---- */
+  // Cortical bone is as dense as dentin, so a plain density grow from the crowns runs into the jaw.
+  // Instead every crown is followed slice by slice toward its root tip, and a root is not allowed to widen.
+  await say('Separating crowns…');
+  const nxy = nx * ny, N = nxy * nz;
+  const yi = new Int32Array(ny), zi = new Int32Array(nz);
+  for (let j = 0; j < ny; j++) yi[j] = ((j / fy) | 0) * wx;
+  for (let k = 0; k < nz; k++) zi[k] = ((k / fz) | 0) * wxy;
+  // roots are fainter than crowns (especially in the front of the upper jaw), so they get a lower level than tlow
+  const tRoot = hard + Math.max(0.05, 0.6 - 0.5 * sens) * (dentin - hard);
+  info.tRoot = Math.round(tRoot);
+  const C = new Uint8Array(N);           // crown (enamel-level) voxels
+  let kLo = nz, kHi = -1;
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) {
+    const wj = zi[k] + yi[j];
+    let p = k * nxy + j * nx;
+    for (let i = 0; i < nx; i++, p++) if (S[wj + xi[i]] && raw[p] >= tRoot) { C[p] = 1; if (k < kLo) kLo = k; if (k > kHi) kHi = k; }
   }
-  // keep only what is still connected to a seed
-  {
-    const R = new Uint8Array(wn);
-    let t = 0, h = 0;
-    for (let q = 0; q < wn; q++) if (S[q]) { R[q] = 1; Q[t++] = q; }
+  if (kHi < 0) return { mask: null, regions: 0, info };
+  const minCrown = Math.max(8, Math.round(4 / (sx * sy * sz)));     // crowns under 4 mm³ are noise
+  const comp = new Int32Array(N);         // 3D components of the crown voxels
+  const QF = new Int32Array(N > 2e7 ? 2e7 : N);
+  let ncomp = 0;
+  const compSize = [0];
+  for (let s = 0; s < N; s++) {
+    if (!C[s] || comp[s]) continue;
+    ncomp++;
+    let h = 0, t = 0;
+    QF[t++] = s; comp[s] = ncomp;
     while (h < t) {
-      const q = Q[h++];
-      const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
+      const q = QF[h++];
+      const k = (q / nxy) | 0, r = q - k * nxy, j = (r / nx) | 0, i = r - j * nx;
       let n;
-      if (x > 0) { n = q - 1; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
-      if (x < wx - 1) { n = q + 1; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
-      if (y > 0) { n = q - wx; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
-      if (y < wy - 1) { n = q + wx; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
-      if (z > 0) { n = q - wxy; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
-      if (z < wz - 1) { n = q + wxy; if (K[n] && !R[n]) { R[n] = 1; Q[t++] = n; } }
+      if (i > 0) { n = q - 1; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
+      if (i < nx - 1) { n = q + 1; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
+      if (j > 0) { n = q - nx; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
+      if (j < ny - 1) { n = q + nx; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
+      if (k > 0) { n = q - nxy; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
+      if (k < nz - 1) { n = q + nxy; if (C[n] && !comp[n]) { comp[n] = ncomp; if (t < QF.length) QF[t++] = n; } }
     }
-    K = R;
+    compSize.push(t);
   }
-  // fill cavities: flood the outside from the grid border, anything not reached and not tooth is enclosed
-  {
-    const out = new Uint8Array(wn);
-    let t = 0, h = 0;
-    const push = (q) => { if (!K[q] && !out[q]) { out[q] = 1; Q[t++] = q; } };
-    for (let z = 0; z < wz; z++) for (let y = 0; y < wy; y++) { push(z * wxy + y * wx); push(z * wxy + y * wx + wx - 1); }
-    for (let z = 0; z < wz; z++) for (let x = 0; x < wx; x++) { push(z * wxy + x); push(z * wxy + (wy - 1) * wx + x); }
-    for (let y = 0; y < wy; y++) for (let x = 0; x < wx; x++) { push(y * wx + x); push((wz - 1) * wxy + y * wx + x); }
-    while (h < t) {
-      const q = Q[h++];
-      const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
-      if (x > 0) push(q - 1); if (x < wx - 1) push(q + 1);
-      if (y > 0) push(q - wx); if (y < wy - 1) push(q + wx);
-      if (z > 0) push(q - wxy); if (z < wz - 1) push(q + wxy);
+  // occlusal surface: in columns that pass through an upper and a lower crown, the gap between them
+  const smp = [];
+  const maxGap = Math.max(1, Math.round(6 / sz));
+  for (let j = 0; j < ny; j += 2) for (let i = 0; i < nx; i += 2) {
+    let prevEnd = -1, prevComp = 0;
+    let k = kLo;
+    while (k <= kHi) {
+      const p = k * nxy + j * nx + i;
+      if (!C[p] || compSize[comp[p]] < minCrown) { k++; continue; }
+      const st = k, cc = comp[p];
+      while (k <= kHi && C[k * nxy + j * nx + i]) k++;
+      if (prevEnd >= 0 && st - prevEnd - 1 >= 1 && st - prevEnd - 1 <= maxGap) smp.push([i, j, (prevEnd + st) / 2, cc !== prevComp ? 1 : 0]);
+      prevEnd = k - 1; prevComp = cc;
     }
-    for (let q = 0; q < wn; q++) if (!K[q] && !out[q]) K[q] = 1;
   }
-  // drop tiny pieces and count the separate tooth regions
-  let regions = 0, totalVox = 0;
+  const cxm = nx / 2, cym = ny / 2, sc = Math.max(nx, ny) / 2;
+  let coef = null;
   {
-    const seen = new Uint8Array(wn);
-    for (let s = 0; s < wn; s++) {
-      if (!K[s] || seen[s]) continue;
-      let h = 0, t = 0;
-      Q[t++] = s; seen[s] = 1;
-      while (h < t) {
-        const q = Q[h++];
-        const z = (q / wxy) | 0, r = q - z * wxy, y = (r / wx) | 0, x = r - y * wx;
-        let n;
-        if (x > 0) { n = q - 1; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
-        if (x < wx - 1) { n = q + 1; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
-        if (y > 0) { n = q - wx; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
-        if (y < wy - 1) { n = q + wx; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
-        if (z > 0) { n = q - wxy; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
-        if (z < wz - 1) { n = q + wxy; if (K[n] && !seen[n]) { seen[n] = 1; Q[t++] = n; } }
+    let use = smp.filter((s) => s[3]);     // gaps between two different crowns: upper above, lower below
+    for (let it = 0; it < 4 && use.length >= 40; it++) {
+      const A = Array.from({ length: 6 }, () => new Float64Array(7));
+      for (const s of use) {
+        const u = (s[0] - cxm) / sc, v = (s[1] - cym) / sc;
+        const f = [1, u, v, u * u, v * v, u * v];
+        for (let r = 0; r < 6; r++) { for (let c2 = 0; c2 < 6; c2++) A[r][c2] += f[r] * f[c2]; A[r][6] += f[r] * s[2]; }
       }
-      if (t * wvol < o.minVol) { for (let i = 0; i < t; i++) K[Q[i]] = 0; }
-      else { regions++; totalVox += t; }
+      for (let r = 0; r < 6; r++) A[r][r] += 1e-6 * use.length;
+      for (let c2 = 0; c2 < 6; c2++) {          // Gauss-Jordan with partial pivoting
+        let pv = c2;
+        for (let r = c2 + 1; r < 6; r++) if (Math.abs(A[r][c2]) > Math.abs(A[pv][c2])) pv = r;
+        const tmp = A[c2]; A[c2] = A[pv]; A[pv] = tmp;
+        const d = A[c2][c2] || 1e-12;
+        for (let c3 = c2; c3 < 7; c3++) A[c2][c3] /= d;
+        for (let r = 0; r < 6; r++) if (r !== c2) { const m2 = A[r][c2]; if (m2) for (let c3 = c2; c3 < 7; c3++) A[r][c3] -= m2 * A[c2][c3]; }
+      }
+      coef = A.map((r) => r[6]);
+      const res = use.map((s) => { const u = (s[0] - cxm) / sc, v = (s[1] - cym) / sc; return Math.abs(s[2] - (coef[0] + coef[1] * u + coef[2] * v + coef[3] * u * u + coef[4] * v * v + coef[5] * u * v)); });
+      const sorted = res.slice().sort((a2, b2) => a2 - b2);
+      const lim = Math.max(1.5, sorted[(sorted.length / 2) | 0] * 3);
+      const next = use.filter((_, n) => res[n] <= lim);
+      if (next.length === use.length) break;
+      use = next;
+    }
+    info.occlSamples = use.length;
+  }
+  const surf = (i, j) => { const u = (i - cxm) / sc, v = (j - cym) / sc; return coef[0] + coef[1] * u + coef[2] * v + coef[3] * u * u + coef[4] * v * v + coef[5] * u * v; };
+  // one jaw only (no occlusal gaps): roots point to the side with more hard tissue
+  let oneDir = 0;
+  if (!coef) {
+    let up = 0, dn = 0;
+    const span2 = Math.round(15 / sz);
+    for (let k = Math.max(0, kLo - span2); k < kLo; k++) for (let p = k * nxy, e2 = p + nxy; p < e2; p++) if (raw[p] >= tRoot) dn++;
+    for (let k = kHi + 1; k <= Math.min(nz - 1, kHi + span2); k++) for (let p = k * nxy, e2 = p + nxy; p < e2; p++) if (raw[p] >= tRoot) up++;
+    oneDir = up >= dn ? 1 : -1;
+  }
+  info.jaws = coef ? 2 : 1;
+
+  const surfK = coef ? surf : () => (oneDir > 0 ? kLo : kHi);
+  const sideOf = (i, j, k) => (coef ? (k >= surfK(i, j) ? 1 : -1) : oneDir);
+
+  /* ---- 6. follow every tooth from the occlusal surface toward its root tips, slice by slice ---- */
+  // Cortical bone is as dense as dentin, so density alone cannot tell them apart. What does: near the occlusal
+  // surface only crowns are dense, and below the crown a root never gets wider. Each jaw is walked slice by slice
+  // away from the occlusal surface; a piece of tooth may only grow into dense pixels next to where it was one
+  // slice earlier, and if that would make it wider (it touches bone) it is held to its previous outline.
+  await say('Following roots…');
+  const crownSl = Math.max(2, Math.round(4 / sz));
+  const endSl = crownSl + Math.max(2, Math.round(o.reach / sz));
+  const r0 = info.roi;
+  // dental arch: where the enamel-level crowns are (seen from above), widened by 3 mm. Keeps the jaw's ramus out.
+  const arch = new Uint8Array(nxy);
+  for (let k = kLo; k <= kHi; k++) for (let p = k * nxy, q = 0; q < nxy; p++, q++) if (C[p] && compSize[comp[p]] >= minCrown) arch[q] = 1;
+  const dil2 = (F, n, x0, x1, y0, y1) => {
+    for (let it = 0; it < n; it++) {
+      const G2 = new Uint8Array(nxy);
+      for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
+        const q = j * nx + i;
+        if (F[q] || (i > 0 && F[q - 1]) || (i < nx - 1 && F[q + 1]) || (j > 0 && F[q - nx]) || (j < ny - 1 && F[q + nx])) G2[q] = 1;
+      }
+      F = G2;
+    }
+    return F;
+  };
+  const archD = dil2(arch, Math.round(3 / Math.min(sx, sy)), 0, nx - 1, 0, ny - 1);      // crowns
+  const archR = dil2(archD, Math.round(6 / Math.min(sx, sy)), 0, nx - 1, 0, ny - 1);     // roots may lean out of it
+  let bi0 = nx, bi1 = -1, bj0 = ny, bj1 = -1;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if (archR[j * nx + i]) { if (i < bi0) bi0 = i; if (i > bi1) bi1 = i; if (j < bj0) bj0 = j; if (j > bj1) bj1 = j; }
+  const bw = bi1 - bi0 + 1, bh = bj1 - bj0 + 1, bn = bw * bh;
+  const SF = new Float32Array(bn);
+  let sMin = Infinity, sMax = -Infinity;
+  for (let y = 0; y < bh; y++) for (let x = 0; x < bw; x++) { const v2 = surfK(bi0 + x, bj0 + y); SF[y * bw + x] = v2; if (v2 < sMin) sMin = v2; if (v2 > sMax) sMax = v2; }
+  const grow = 1 + 0.05 / Math.max(0.2, o.sep);
+  const openR = Math.max(0, Math.round(o.sep * 0.8 / Math.min(sx, sy)));
+  const LB = new Uint8Array(N);
+  const prev = new Uint8Array(bn), cur = new Uint8Array(bn), cnd = new Uint8Array(bn), seedZ = new Uint8Array(bn);
+  const opA = new Uint8Array(bn), opB = new Uint8Array(bn), prevD = new Uint8Array(bn);
+  const dR = Math.max(1, Math.round(sz * 0.8 / Math.min(sx, sy)));
+  const compId = new Int32Array(bn), st = new Int32Array(bn), seen = new Uint8Array(bn);
+  const dirs = coef ? [1, -1] : [oneDir];
+  for (const dir of dirs) {
+    prev.fill(0);
+    const kStart = dir > 0 ? Math.max(0, Math.floor(sMin) - 2) : Math.min(nz - 1, Math.ceil(sMax) + 2);
+    const kStop = dir > 0 ? Math.min(nz - 1, Math.ceil(sMax) + endSl + 1) : Math.max(0, Math.floor(sMin) - endSl - 1);
+    for (let k = kStart; dir > 0 ? k <= kStop : k >= kStop; k += dir) {
+      const base = k * nxy;
+      let any = 0;
+      // where last slice's tooth was, widened by the drift a tilted root can make in one slice
+      prevD.set(prev);
+      for (let r2 = 0; r2 < dR; r2++) {
+        opB.set(prevD);
+        for (let b = 0; b < bn; b++) {
+          if (opB[b]) continue;
+          const y = (b / bw) | 0, x = b - y * bw;
+          if ((x > 0 && opB[b - 1]) || (x < bw - 1 && opB[b + 1]) || (y > 0 && opB[b - bw]) || (y < bh - 1 && opB[b + bw])) prevD[b] = 1;
+        }
+      }
+      for (let y = 0; y < bh; y++) {
+        let p = base + (bj0 + y) * nx + bi0, b = y * bw;
+        for (let x = 0; x < bw; x++, p++, b++) {
+          cnd[b] = 0; seedZ[b] = 0;
+          if (raw[p] < tRoot || !archR[p - base]) continue;
+          const dd = dir * (k - SF[b]);
+          if (dd < -1 || dd > endSl) continue;
+          if (dd <= crownSl) {
+            if (!archD[p - base]) continue; seedZ[b] = 1; cnd[b] = 1; any = 1; continue; }
+          if (prevD[b]) { cnd[b] = 1; any = 1; }
+        }
+      }
+      cur.fill(0);
+      if (any) {
+        // connected pieces of the candidate; keep those attached to the crown zone or to last slice's tooth
+        compId.fill(0);
+        let nc3 = 0;
+        for (let s0 = 0; s0 < bn; s0++) {
+          if (!cnd[s0] || compId[s0]) continue;
+          nc3++;
+          let t = 0, h = 0, aNew = 0, aPrev = 0, hasSeed = 0;
+          st[t++] = s0; compId[s0] = nc3;
+          while (h < t) {
+            const b = st[h++], y = (b / bw) | 0, x = b - y * bw;
+            aNew++; aPrev += prev[b]; hasSeed |= seedZ[b];
+            if (x > 0 && cnd[b - 1] && !compId[b - 1]) { compId[b - 1] = nc3; st[t++] = b - 1; }
+            if (x < bw - 1 && cnd[b + 1] && !compId[b + 1]) { compId[b + 1] = nc3; st[t++] = b + 1; }
+            if (y > 0 && cnd[b - bw] && !compId[b - bw]) { compId[b - bw] = nc3; st[t++] = b - bw; }
+            if (y < bh - 1 && cnd[b + bw] && !compId[b + bw]) { compId[b + bw] = nc3; st[t++] = b + bw; }
+          }
+          if (!hasSeed && !aPrev) continue;
+          const hold = !hasSeed && aNew > aPrev * grow + 1;
+          if (!hold) { for (let x = 0; x < t; x++) cur[st[x]] = 1; continue; }
+          // it would widen: keep last slice's outline instead, moved by the shift that best fits the dense pixels
+          // (roots lean, so the outline may drift a little; it may not grow)
+          let cx0 = bw, cx1 = -1, cy0 = bh, cy1 = -1;
+          for (let x = 0; x < t; x++) { const b = st[x], yy = (b / bw) | 0, xx = b - yy * bw; if (xx < cx0) cx0 = xx; if (xx > cx1) cx1 = xx; if (yy < cy0) cy0 = yy; if (yy > cy1) cy1 = yy; }
+          cx0 = Math.max(0, cx0 - dR); cx1 = Math.min(bw - 1, cx1 + dR); cy0 = Math.max(0, cy0 - dR); cy1 = Math.min(bh - 1, cy1 + dR);
+          let bestS = -1, bdx = 0, bdy = 0;
+          for (let dy = -dR; dy <= dR; dy++) for (let dx = -dR; dx <= dR; dx++) {
+            let sc2 = 0;
+            for (let yy = cy0; yy <= cy1; yy++) {
+              const y2 = yy + dy; if (y2 < 0 || y2 >= bh) continue;
+              for (let xx = cx0; xx <= cx1; xx++) {
+                const x2 = xx + dx; if (x2 < 0 || x2 >= bw) continue;
+                if (prev[yy * bw + xx] && compId[y2 * bw + x2] === nc3) sc2++;
+              }
+            }
+            sc2 -= 0.01 * (Math.abs(dx) + Math.abs(dy));
+            if (sc2 > bestS) { bestS = sc2; bdx = dx; bdy = dy; }
+          }
+          for (let yy = cy0; yy <= cy1; yy++) {
+            const y2 = yy + bdy; if (y2 < 0 || y2 >= bh) continue;
+            for (let xx = cx0; xx <= cx1; xx++) {
+              const x2 = xx + bdx; if (x2 < 0 || x2 >= bw) continue;
+              const b2 = y2 * bw + x2;
+              if (prev[yy * bw + xx] && compId[b2] === nc3) cur[b2] = 1;
+            }
+          }
+        }
+        // open (erode + dilate by one pixel) below the crown zone: thin slivers of cortical bone stuck to a root go
+        if (openR > 0) {
+          let E = opA, F = opB;
+          E.set(cur);
+          for (let r2 = 0; r2 < openR; r2++) {
+            F.fill(0);
+            for (let y = 1; y < bh - 1; y++) for (let x = 1, b = y * bw + 1; x < bw - 1; x++, b++) {
+              if (E[b] && E[b - 1] && E[b + 1] && E[b - bw] && E[b + bw]) F[b] = 1;
+            }
+            const t2 = E; E = F; F = t2;
+          }
+          for (let r2 = 0; r2 < openR; r2++) {
+            F.fill(0);
+            for (let b = 0; b < bn; b++) {
+              if (!cur[b]) continue;
+              const y = (b / bw) | 0, x = b - y * bw;
+              if (E[b] || (x > 0 && E[b - 1]) || (x < bw - 1 && E[b + 1]) || (y > 0 && E[b - bw]) || (y < bh - 1 && E[b + bw])) F[b] = 1;
+            }
+            const t2 = E; E = F; F = t2;
+          }
+          for (let b = 0; b < bn; b++) if (cur[b] && !seedZ[b] && !E[b]) cur[b] = 0;
+        }
+        // fill the pulp: background not reachable from the box border
+        seen.fill(0);
+        let t = 0;
+        const push = (b) => { if (!cur[b] && !seen[b]) { seen[b] = 1; st[t++] = b; } };
+        for (let x = 0; x < bw; x++) { push(x); push((bh - 1) * bw + x); }
+        for (let y = 0; y < bh; y++) { push(y * bw); push(y * bw + bw - 1); }
+        while (t) {
+          const b = st[--t], y = (b / bw) | 0, x = b - y * bw;
+          if (x > 0) push(b - 1); if (x < bw - 1) push(b + 1);
+          if (y > 0) push(b - bw); if (y < bh - 1) push(b + bw);
+        }
+        for (let b = 0; b < bn; b++) if (!seen[b]) cur[b] = 1;
+        for (let y = 0; y < bh; y++) {
+          let p = base + (bj0 + y) * nx + bi0, b = y * bw;
+          for (let x = 0; x < bw; x++, p++, b++) if (cur[b]) LB[p] = 1;
+        }
+      }
+      prev.set(cur);
+      if ((k & 7) === 0) await pause();
+    }
+  }
+
+  /* ---- 7. final mask: fill the pulp per slice, drop tiny pieces ---- */
+  await say('Finishing…');
+  const full = new Uint8Array(N);
+  for (let p = 0; p < N; p++) if (LB[p] === 1) full[p] = 1;
+  const minVox = Math.max(1, Math.round(o.minVol / (sx * sy * sz)));
+  let regions = 0, count = 0;
+  {
+    const seen3 = new Uint8Array(N);
+    for (let s0 = 0; s0 < N; s0++) {
+      if (!full[s0] || seen3[s0]) continue;
+      let h = 0, t = 0;
+      QF[t++] = s0; seen3[s0] = 1;
+      while (h < t) {
+        const q = QF[h++];
+        const k = (q / nxy) | 0, r = q - k * nxy, j = (r / nx) | 0, i = r - j * nx;
+        let n;
+        if (i > 0) { n = q - 1; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+        if (i < nx - 1) { n = q + 1; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+        if (j > 0) { n = q - nx; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+        if (j < ny - 1) { n = q + nx; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+        if (k > 0) { n = q - nxy; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+        if (k < nz - 1) { n = q + nxy; if (full[n] && !seen3[n]) { seen3[n] = 1; if (t < QF.length) QF[t++] = n; } }
+      }
+      let enamel = false;
+      for (let x = 0; x < t && !enamel; x++) if (C[QF[x]] || raw[QF[x]] >= best.L) enamel = true;
+      if (t < minVox || !enamel) { for (let x = 0; x < t; x++) full[QF[x]] = 0; }
+      else { regions++; count += t; }
     }
   }
   info.regions = regions;
   if (!regions) return { mask: null, regions: 0, info };
-  await pause();
-
-  /* ---- 6. back to full resolution ---- */
-  await say('Finishing…');
-  const full = new Uint8Array(nx * ny * nz);
-  if (fx === 1 && fy === 1 && fz === 1) full.set(K);
-  else {
-    const Kin = erode(K), Kd = dilate(K, null);
-    for (let k = 0; k < nz; k++) {
-      const wk = ((k / fz) | 0) * wxy;
-      for (let j = 0; j < ny; j++) {
-        const wj = wk + ((j / fy) | 0) * wx;
-        let p = (k * ny + j) * nx;
-        for (let i = 0; i < nx; i++, p++) {
-          const q = wj + xi[i];
-          if (Kin[q]) full[p] = 1;
-          else if (Kd[q] && raw[p] >= tlow) full[p] = 1;
-        }
-      }
-    }
-  }
-  let count = 0;
-  for (let p = 0; p < full.length; p++) count += full[p];
   return { mask: full, regions, volumeMm3: count * sx * sy * sz, info };
 }
 
@@ -1947,8 +2314,8 @@ function stepAxis(ax, d) {
 function stepSlice(d) { stepAxis(sl.axis, d); }
 function setActiveAxis(ax) { if (sl.axis !== ax) { sl.axis = ax; updateSlice(); } }
 
-$('wlSlider').addEventListener('input', () => { sl.wl = parseFloat($('wlSlider').value); updateSlice(); });
-$('wwSlider').addEventListener('input', () => { sl.ww = Math.max(1, parseFloat($('wwSlider').value)); updateSlice(); });
+$('wlSlider').addEventListener('input', () => { sl.wl = parseFloat($('wlSlider').value); updateSlice(); if (state.planes) requestRender(); });
+$('wwSlider').addEventListener('input', () => { sl.ww = Math.max(1, parseFloat($('wwSlider').value)); updateSlice(); if (state.planes) requestRender(); });
 
 // voxel value under the pointer in a slice pane
 function valueAtPointer(e, cvs, ax) {
@@ -2020,8 +2387,8 @@ async function runDetect() {
     } else {
       teeth.mask = r.mask; uploadMask(r.mask);
       const i = r.info;
-      setTeethStatus((r.volumeMm3 / 1000).toFixed(1) + ' cm³ of teeth found (' + r.regions + (r.regions === 1 ? ' connected group)' : ' connected groups)'),
-        'tissue levels: hard ' + i.hard + ' · tooth ' + i.dentin + ' · grow ≥ ' + i.tlow);
+      setTeethStatus((r.volumeMm3 / 1000).toFixed(1) + ' cm³ of teeth found (' + (i.jaws === 2 ? 'upper and lower jaw' : 'one jaw') + ')',
+        'tissue levels: hard ' + i.hard + ' · dentin ' + i.dentin + ' · roots ≥ ' + i.tRoot);
       const T = layers.find((l) => l.id === 'tooth');
       if (T && !T.visible) { T.visible = true; renderLayers(); layersChanged(); }
     }
@@ -2076,6 +2443,7 @@ function syncBar() {
   all('#bar [data-view]').forEach((b) => b.setAttribute('aria-pressed', String((views.layout === 'focus' || views.layout === 'single') && views.main === parseInt(b.dataset.view, 10))));
   all('#bar [data-panel]').forEach((b) => b.setAttribute('aria-pressed', String(!$(b.dataset.panel).hidden)));
   $('tbCross').setAttribute('aria-pressed', String(state.cross));
+  $('tbPlanes').setAttribute('aria-pressed', String(state.planes));
   $('tbWL').setAttribute('aria-pressed', String(!$('popWL').hidden));
   $('tbHelp').setAttribute('aria-pressed', String(!$('popHelp').hidden));
   // give the views the room of panels that are switched off
@@ -2095,6 +2463,7 @@ document.querySelectorAll('#bar [data-lay]').forEach((b) => b.addEventListener('
 document.querySelectorAll('#bar [data-view]').forEach((b) => b.addEventListener('click', () => chooseMain(parseInt(b.dataset.view, 10))));
 document.querySelectorAll('#bar [data-panel]').forEach((b) => b.addEventListener('click', () => toggleHidden(b.dataset.panel)));
 $('tbCross').addEventListener('click', () => { state.cross = !state.cross; $('crossOn').checked = state.cross; updateSlice(); requestRender(); });
+$('tbPlanes').addEventListener('click', togglePlanes);
 $('tbReset').addEventListener('click', resetView);
 $('tbPresent').addEventListener('click', togglePresent);
 $('tbTeeth').addEventListener('click', runDetect);
@@ -2149,6 +2518,7 @@ function renderLayers() {
     : 'Ranges are in Hounsfield units (HU). Tick a layer to show it.';
   layers.forEach((L) => {
     const row = el('div', 'layer' + (L.visible ? '' : ' off'));
+    row.dataset.lid = L.id; row.style.setProperty('--lc', L.color);
     const top = el('div', 'ltop');
     const vis = el('input', 'lvis', { type: 'checkbox', checked: L.visible, id: 'lv_' + L.id });
     vis.setAttribute('aria-label', 'Show ' + L.name);
@@ -2177,13 +2547,14 @@ function renderLayers() {
     list.append(row);
 
     vis.addEventListener('change', () => { L.visible = vis.checked; row.classList.toggle('off', !L.visible); layersChanged(); });
-    col.addEventListener('input', () => { L.color = col.value; buildTF(); requestRender(); });
+    col.addEventListener('input', () => { L.color = col.value; row.style.setProperty('--lc', L.color); buildTF(); requestRender(); });
     nm.addEventListener('input', () => { L.name = nm.value; });
     from.addEventListener('input', () => { const v = parseFloat(from.value); if (Number.isFinite(v)) { L.from = v; buildTF(); requestRender(); } });
     to.addEventListener('input', () => { const v = parseFloat(to.value); if (Number.isFinite(v)) { L.to = v; buildTF(); requestRender(); } });
     op.addEventListener('input', () => { L.opacity = parseFloat(op.value); buildTF(); requestRender(); });
   });
 }
+document.querySelectorAll('#rightcol .panel > h2').forEach((h) => h.addEventListener('click', () => h.parentElement.classList.toggle('collapsed')));
 $('addLayer').addEventListener('click', () => {
   const lo = vol ? vol.lo : -1024, span = vol ? vol.hi - vol.lo : 4095;
   layerSeq++;
@@ -2217,46 +2588,187 @@ function updateInfo() {
   $('infoBody').innerHTML = rows.map((r) => '<dt>' + r[0] + '</dt><dd>' + r[1] + '</dd>').join('');
 }
 
-/* ------------------------------------------------------------------ histogram */
+/* ------------------------------------------------------------------ histogram (interactive: drag layer edges / bodies) */
+const histUI = { hover: null, drag: null, px: null, active: null };
+const HP = { L: 10, R: 10, T: 28, B: 32 };
+function histGeom() {
+  const c = $('hist'), w = c.clientWidth, h = c.clientHeight;
+  return { w, h, pw: w - HP.L - HP.R, ph: h - HP.T - HP.B };
+}
+const histX2v = (x, G) => vol.lo + clamp((x - HP.L) / G.pw, 0, 1) * (vol.hi - vol.lo);
+const histV2x = (v, G) => HP.L + clamp((v - vol.lo) / (vol.hi - vol.lo), 0, 1) * G.pw;
+function histSnap() { return vol && !vol.ct ? Math.max(1, Math.round((vol.hi - vol.lo) / 1000)) : 5; }
+const histOpY = (o, G) => HP.T + (1 - clamp(o, 0, 1)) * G.ph;   // opacity 1 at the top of the plot, 0 at the bottom
+function histHit(x, y) {
+  if (!vol) return null;
+  const G = histGeom();
+  let best = null;
+  // the horizontal opacity bar of each layer: drag it up / down to change transparency
+  if (y != null) {
+    layers.forEach((L, idx) => {
+      if (!L.visible || L.seg) return;
+      const a = histV2x(Math.min(L.from, L.to), G), b = histV2x(Math.max(L.from, L.to), G);
+      const inner = b - a > 16 ? 6 : 0;
+      if (x < a + inner || x > b - inner) return;
+      const d = Math.abs(y - histOpY(L.opacity, G));
+      if (d <= 6 && (!best || d < best.d || (d === best.d && idx > best.idx))) best = { L, part: 'op', d, idx };
+    });
+    if (best) return best;
+  }
+  layers.forEach((L, idx) => {
+    if (!L.visible || L.seg) return;
+    const a = histV2x(Math.min(L.from, L.to), G), b = histV2x(Math.max(L.from, L.to), G);
+    for (const [part, ex] of [['lo', a], ['hi', b]]) {
+      const d = Math.abs(x - ex);
+      if (d <= 8 && (!best || d < best.d || (d === best.d && idx > best.idx))) best = { L, part, d, idx };
+    }
+  });
+  if (best) return best;
+  let body = null;
+  layers.forEach((L, idx) => {
+    if (!L.visible || L.seg) return;
+    const a = histV2x(Math.min(L.from, L.to), G), b = histV2x(Math.max(L.from, L.to), G);
+    if (x >= a && x <= b && (!body || b - a <= body.w)) body = { L, part: 'body', w: b - a, idx };
+  });
+  return body;
+}
+function syncRow(L) {
+  const row = document.querySelector('.layer[data-lid="' + L.id + '"]');
+  if (!row) return;
+  const op = row.querySelector('.lop');
+  if (op) op.value = String(L.opacity);
+  const nums = row.querySelectorAll('.lnum');
+  if (nums.length === 2) { nums[0].value = String(Math.round(L.from)); nums[1].value = String(Math.round(L.to)); }
+}
+function histPointer(e, type) {
+  const c = $('hist');
+  const r = c.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  histUI.px = x;
+  if (!vol) return;
+  const G = histGeom();
+  if (type === 'down') {
+    const hit = histHit(x, y);
+    if (!hit) { histUI.active = null; drawHist(); markRows(); return; }
+    const L = hit.L;
+    if (L.from > L.to) { const t = L.from; L.from = L.to; L.to = t; }
+    histUI.drag = { L, part: hit.part, x0: x, y0: y, f0: L.from, t0: L.to, o0: L.opacity, axis: null };
+    histUI.active = L.id;
+    c.setPointerCapture(e.pointerId);
+    c.style.cursor = hit.part === 'body' ? 'grabbing' : hit.part === 'op' ? 'ns-resize' : 'ew-resize';
+    if (hit.part === 'op') drawHist();
+    e.preventDefault();
+    markRows();
+  } else if (type === 'move') {
+    const d = histUI.drag;
+    if (d) {
+      const snap = histSnap(), min = snap * 2;
+      const dv = ((x - d.x0) / G.pw) * (vol.hi - vol.lo);
+      const sn = (v) => Math.round(v / snap) * snap;
+      // dragging a layer's body: sideways moves its range, up / down changes its opacity (locked to one direction per drag)
+      if (d.part === 'body' && !d.axis && Math.hypot(x - d.x0, y - d.y0) > 4) {
+        d.axis = Math.abs(y - d.y0) > Math.abs(x - d.x0) ? 'y' : 'x';
+        c.style.cursor = d.axis === 'y' ? 'ns-resize' : 'grabbing';
+      }
+      if (d.part === 'op' || (d.part === 'body' && d.axis === 'y')) {
+        const o = d.part === 'op' ? 1 - (y - HP.T) / G.ph : d.o0 - (y - d.y0) / G.ph;
+        d.L.opacity = Math.round(clamp(o, 0, 1) * 100) / 100;
+        syncRow(d.L);
+        buildTF(); requestRender();
+        return;
+      }
+      if (d.part === 'body' && !d.axis) return;
+      if (d.part === 'lo') d.L.from = clamp(sn(d.f0 + dv), vol.lo, d.t0 - min);
+      else if (d.part === 'hi') d.L.to = clamp(sn(d.t0 + dv), d.f0 + min, vol.hi);
+      else {
+        const w = d.t0 - d.f0;
+        const f = clamp(sn(d.f0 + dv), vol.lo, vol.hi - w);
+        d.L.from = f; d.L.to = f + w;
+      }
+      syncRow(d.L);
+      buildTF(); requestRender();
+    } else {
+      const hit = histHit(x, y);
+      const key = hit ? hit.L.id + hit.part : null;
+      c.style.cursor = !hit ? 'crosshair' : hit.part === 'body' ? 'grab' : hit.part === 'op' ? 'ns-resize' : 'ew-resize';
+      if (key !== histUI.hover) { histUI.hover = key; markRows(hit ? hit.L.id : null); }
+      drawHist();
+    }
+  } else if (type === 'up') {
+    if (histUI.drag) { histUI.drag = null; c.style.cursor = 'crosshair'; drawHist(); }
+  } else if (type === 'leave') {
+    if (!histUI.drag) { histUI.px = null; histUI.hover = null; markRows(); drawHist(); c.style.cursor = 'crosshair'; }
+  }
+}
+function markRows(hoverId) {
+  document.querySelectorAll('.layer').forEach((r) => {
+    r.classList.toggle('hot', r.dataset.lid === (histUI.active || hoverId));
+  });
+}
+{
+  const c = $('hist');
+  c.style.cursor = 'crosshair'; c.style.touchAction = 'none';
+  c.addEventListener('pointerdown', (e) => histPointer(e, 'down'));
+  c.addEventListener('pointermove', (e) => histPointer(e, 'move'));
+  c.addEventListener('pointerup', (e) => histPointer(e, 'up'));
+  c.addEventListener('pointercancel', (e) => histPointer(e, 'up'));
+  c.addEventListener('pointerleave', (e) => histPointer(e, 'leave'));
+}
+
 function drawHist() {
   const c = $('hist');
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
   if (!w || !h) return;
-  c.width = Math.floor(w * dpr); c.height = Math.floor(h * dpr);
+  if (c.width !== Math.floor(w * dpr) || c.height !== Math.floor(h * dpr)) { c.width = Math.floor(w * dpr); c.height = Math.floor(h * dpr); }
   const g = c.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  if (!vol) return;
-  const padL = 6, padR = 6, padT = 24, padB = 30;
-  const pw = w - padL - padR, ph = h - padT - padB;
-  const hist = vol.hist;
+  if (!vol) {
+    g.fillStyle = '#5d6b7d'; g.font = '12px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('Load a scan to see its intensity histogram', w / 2, h / 2);
+    return;
+  }
+  const G = histGeom(), pw = G.pw, ph = G.ph, padL = HP.L, padT = HP.T;
+  const hist = vol.hist, vspan = vol.hi - vol.lo;
   let mx = 1;
   for (let i = 0; i < 256; i++) mx = Math.max(mx, Math.log1p(hist[i]));
-  const vspan = vol.hi - vol.lo;
+  // faint grid
+  g.strokeStyle = 'rgba(255,255,255,0.045)'; g.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const y = Math.round(padT + (ph * i) / 3) + 0.5; g.beginPath(); g.moveTo(padL, y); g.lineTo(padL + pw, y); g.stroke(); }
+  // histogram area
+  const bw = pw / 256;
+  const yOf = (i) => padT + ph - (Math.log1p(hist[i]) / mx) * ph;
+  const grad = g.createLinearGradient(0, padT, 0, padT + ph);
+  grad.addColorStop(0, 'rgba(126,168,255,0.55)'); grad.addColorStop(1, 'rgba(126,168,255,0.04)');
+  g.beginPath(); g.moveTo(padL, padT + ph);
+  for (let i = 0; i < 256; i++) g.lineTo(padL + (i + 0.5) * bw, yOf(i));
+  g.lineTo(padL + pw, padT + ph); g.closePath();
+  g.fillStyle = grad; g.fill();
+  g.beginPath();
+  for (let i = 0; i < 256; i++) { const x = padL + (i + 0.5) * bw; if (i === 0) g.moveTo(x, yOf(i)); else g.lineTo(x, yOf(i)); }
+  g.strokeStyle = 'rgba(160,190,255,0.9)'; g.lineWidth = 1.2; g.stroke();
+  // layer bands
+  const hov = histUI.hover, act = histUI.active;
+  const handles = [];
   for (const L of layers) {
     if (!L.visible || L.seg) continue;
-    const x1 = padL + clamp((Math.min(L.from, L.to) - vol.lo) / vspan, 0, 1) * pw;
-    const x2 = padL + clamp((Math.max(L.from, L.to) - vol.lo) / vspan, 0, 1) * pw;
-    if (x2 - x1 < 0.5) continue;
-    g.globalAlpha = 0.14 + 0.22 * L.opacity;
+    const x1 = histV2x(Math.min(L.from, L.to), G), x2 = histV2x(Math.max(L.from, L.to), G);
+    const on = act === L.id || (hov && hov.startsWith(L.id));
+    const bandH = ph;
+    g.globalAlpha = (on ? 0.30 : 0.16) + 0.14 * L.opacity;
     g.fillStyle = L.color;
-    g.fillRect(x1, padT, x2 - x1, ph);
+    g.fillRect(x1, padT, Math.max(1, x2 - x1), bandH);
     g.globalAlpha = 1;
-    g.fillRect(x1, padT, x2 - x1, 2);
-  }
-  g.fillStyle = 'rgba(126,168,255,0.38)';
-  const bw = pw / 256;
-  for (let i = 0; i < 256; i++) {
-    const bh = (Math.log1p(hist[i]) / mx) * ph;
-    g.fillRect(padL + i * bw, padT + ph - bh, Math.max(1, bw - 0.5), bh);
-  }
-  // colour strip from the transfer function
-  const sy0 = padT + ph + 4;
-  for (let x = 0; x < pw; x++) {
-    const ti = Math.min(1023, Math.floor((x / pw) * 1024)) * 4;
-    g.fillStyle = 'rgb(' + tfData[ti] + ',' + tfData[ti + 1] + ',' + tfData[ti + 2] + ')';
-    g.fillRect(padL + x, sy0, 1, 5);
+    g.fillStyle = L.color;
+    g.fillRect(x1, padT - 3, Math.max(1, x2 - x1), 3);                // coloured cap
+    g.fillRect(x1 - 1, padT, 2, bandH); g.fillRect(x2 - 1, padT, 2, bandH);   // edge lines
+    if (x2 - x1 > 46) {
+      g.fillStyle = 'rgba(255,255,255,0.88)'; g.font = '500 10.5px Inter, system-ui, sans-serif'; g.textAlign = 'left'; g.textBaseline = 'top';
+      g.save(); g.beginPath(); g.rect(x1 + 2, padT, x2 - x1 - 4, 16); g.clip();
+      g.fillText(L.name, x1 + 6, padT + 5); g.restore();
+    }
+    handles.push([L, x1, x2, on]);
   }
   // opacity curve
   g.beginPath();
@@ -2265,21 +2777,82 @@ function drawHist() {
     const y = padT + ph - (tfData[ti] / 255) * ph;
     if (x === 0) g.moveTo(padL + x, y); else g.lineTo(padL + x, y);
   }
-  g.strokeStyle = '#eef2f7'; g.lineWidth = 1.5; g.stroke();
+  g.strokeStyle = 'rgba(238,242,247,0.95)'; g.lineWidth = 1.6; g.stroke();
+  // opacity bars: one per layer at its opacity level, drag up / down for more or less transparency
+  for (const [L, x1, x2, on] of handles) {
+    const y = Math.round(histOpY(L.opacity, G)) + 0.5;
+    const hotOp = (hov === L.id + 'op') || (histUI.drag && histUI.drag.L === L && (histUI.drag.part === 'op' || histUI.drag.axis === 'y'));
+    g.strokeStyle = L.color; g.lineWidth = hotOp ? 2.5 : 1.5;
+    g.setLineDash(hotOp ? [] : [4, 3]);
+    g.beginPath(); g.moveTo(x1, y); g.lineTo(x2, y); g.stroke(); g.setLineDash([]);
+    const kx = (x1 + x2) / 2;
+    g.fillStyle = hotOp ? '#ffffff' : 'rgba(235,240,247,0.92)'; g.strokeStyle = L.color; g.lineWidth = 2;
+    g.beginPath(); g.roundRect(kx - 9, y - 4.5, 18, 9, 4.5); g.fill(); g.stroke();
+    g.strokeStyle = 'rgba(20,28,40,0.55)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(kx - 3.5, y - 1.5); g.lineTo(kx + 3.5, y - 1.5); g.moveTo(kx - 3.5, y + 1.5); g.lineTo(kx + 3.5, y + 1.5); g.stroke();
+    if (hotOp || on) {
+      const t = Math.round(L.opacity * 100) + '% opaque';
+      g.font = '500 10.5px "JetBrains Mono", ui-monospace, monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
+      const tw = g.measureText(t).width + 10, by = y < padT + 14 ? y + 13 : y - 13;
+      const bx = clamp(kx - tw / 2, 2, w - tw - 2);
+      g.fillStyle = 'rgba(8,12,18,0.92)'; g.strokeStyle = L.color; g.lineWidth = 1;
+      g.beginPath(); g.roundRect(bx, by - 8, tw, 16, 4); g.fill(); g.stroke();
+      g.fillStyle = '#eef2f7'; g.fillText(t, bx + 5, by);
+    }
+  }
+  // grips drawn last so they stay on top
+  for (const [L, x1, x2, on] of handles) {
+    for (const ex of [x1, x2]) {
+      const gw = 8, gh = 24, gy = padT + ph / 2 - gh / 2;
+      g.fillStyle = on ? '#ffffff' : 'rgba(235,240,247,0.92)';
+      g.strokeStyle = L.color; g.lineWidth = 2;
+      g.beginPath(); g.roundRect(ex - gw / 2, gy, gw, gh, 4); g.fill(); g.stroke();
+      g.strokeStyle = 'rgba(20,28,40,0.55)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(ex - 1, gy + 7); g.lineTo(ex - 1, gy + gh - 7); g.moveTo(ex + 1.5, gy + 7); g.lineTo(ex + 1.5, gy + gh - 7); g.stroke();
+    }
+    if (on) {   // value badges while hovering / dragging
+      g.font = '500 10.5px "JetBrains Mono", ui-monospace, monospace'; g.textBaseline = 'middle';
+      for (const [ex, v, al] of [[x1, Math.min(L.from, L.to), 'right'], [x2, Math.max(L.from, L.to), 'left']]) {
+        const t = String(Math.round(v)), tw = g.measureText(t).width + 10;
+        const bx = al === 'right' ? ex - tw - 8 : ex + 8, by = padT + ph + 2 - 16;
+        g.fillStyle = 'rgba(8,12,18,0.92)'; g.strokeStyle = L.color; g.lineWidth = 1;
+        g.beginPath(); g.roundRect(clamp(bx, 2, w - tw - 2), by - 8, tw, 16, 4); g.fill(); g.stroke();
+        g.fillStyle = '#eef2f7'; g.textAlign = 'left'; g.fillText(t, clamp(bx, 2, w - tw - 2) + 5, by);
+      }
+    }
+  }
+  // colour strip from the transfer function
+  const sy0 = padT + ph + 6;
+  for (let x = 0; x < pw; x++) {
+    const ti = Math.min(1023, Math.floor((x / pw) * 1024)) * 4;
+    g.fillStyle = 'rgb(' + tfData[ti] + ',' + tfData[ti + 1] + ',' + tfData[ti + 2] + ')';
+    g.fillRect(padL + x, sy0, 1, 5);
+  }
   // ticks
-  g.fillStyle = '#8592a3'; g.font = '10px "JetBrains Mono", ui-monospace, monospace'; g.textBaseline = 'top';
+  g.fillStyle = '#7d8a9b'; g.font = '10px "JetBrains Mono", ui-monospace, monospace'; g.textBaseline = 'top';
   const ticks = [];
   if (vol.ct) for (let hu = -1000; hu <= 3000; hu += 500) ticks.push(hu);
   else for (let i = 0; i <= 4; i++) ticks.push(Math.round(vol.lo + ((vol.hi - vol.lo) * i) / 4));
   ticks.forEach((tv, i) => {
-    const x = padL + ((tv - vol.lo) / (vol.hi - vol.lo)) * pw;
+    const x = padL + ((tv - vol.lo) / vspan) * pw;
     if (x < padL || x > padL + pw) return;
     g.fillRect(x, sy0 + 7, 1, 3);
     g.textAlign = i === 0 ? 'left' : i === ticks.length - 1 ? 'right' : 'center';
     g.fillText(String(tv), x, sy0 + 11);
   });
-  g.textAlign = 'right';
-  g.fillText(vol.ct ? 'HU · log count' : 'raw · log count', w - 8, 10);
+  // cursor readout
+  if (histUI.px != null && !histUI.drag && histUI.px >= padL && histUI.px <= padL + pw) {
+    const x = histUI.px, v = Math.round(histX2v(x, G));
+    g.strokeStyle = 'rgba(255,255,255,0.28)'; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(x + 0.5, padT); g.lineTo(x + 0.5, padT + ph); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#c8d3e2'; g.font = '500 10.5px "JetBrains Mono", ui-monospace, monospace'; g.textAlign = x > w - 60 ? 'right' : 'left'; g.textBaseline = 'top';
+    g.fillText(v + (vol.ct ? ' HU' : ''), x + (x > w - 60 ? -6 : 6), 8);
+  }
+  g.textAlign = 'right'; g.textBaseline = 'top'; g.fillStyle = '#5d6b7d'; g.font = '10px "JetBrains Mono", ui-monospace, monospace';
+  g.fillText(vol.ct ? 'HU · log count' : 'raw · log count', w - 10, 8);
+  if (histUI.px == null) {
+    g.textAlign = 'left'; g.font = '10.5px Inter, system-ui, sans-serif';
+    g.fillText('Drag a layer sideways to move it, its edges to resize it, up or down to change its opacity', 10, 8);
+  }
 }
 
 /* ------------------------------------------------------------------ loading files */
